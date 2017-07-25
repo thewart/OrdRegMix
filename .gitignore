@@ -1,0 +1,10 @@
+Notebooks/*_cache/
+Notebooks/*_files/
+Notebooks/.*
+Notebooks/*.html
+Notebooks/rsconnect/
+Notebooks/.ipynb_checkpoints/
+*.rda
+*.hpp
+*.pdf
+*.swp
