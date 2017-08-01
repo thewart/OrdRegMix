@@ -4,23 +4,35 @@ options(mc.cores = 4)
 
 ordreg <- stan_model("~/code/OrdRegMix/ordreg.stan")
 
-n <- 1000
-p <- 3
-ncat <- 5
+r <- 500
+rep <- 1
+p <- 2
+ncat <- 3
 cp <- c(0,runif(ncat-2)*3) %>% sort()
+K <- c(5,10)
+sigma_u <- c(.75,0.1)
+#sigma_g <- 0.0
 beta <- rnorm(p)
 alpha <- rnorm(1)
-X <- rnorm(n*p) %>% matrix(nrow=n)
-y <- cut(alpha + X %*% beta + rlogis(n),breaks = c(Inf,cp,-Inf),labels=F)
+X <- rnorm(r*p) %>% matrix(nrow=r)
+#L_A <- chol(MCMCpack::riwish(n+1,diag(r))) %>% t()
+u <- lapply(1:length(K),function(x) sigma_u[x] * rnorm(K[x]))
+Z <- sapply(K,function(x) sample(1:x,r,replace=T))
+eta <- alpha + X %*% beta #+ sigma_g * L_A %*% rnorm(r)
+for (k in 1:length(K)) eta <- eta + u[[k]][Z[,k]]
 
-standat <- list(y=y,X=X,N=n,P=p,L=ncat)
+y <- matrix(0,nrow=r,ncol=ncat)
+for (i in 1:r) y[i,] <- cut(eta[i] + rlogis(10),breaks = c(Inf,cp,-Inf),ordered_result = T) %>% table()
 
-stanfit <- sampling(ordreg,standat,chains=1,iter=500,warmup=100,init=0)
+standat <- list(y=y,X=X,N=r,P=p,V=length(K),L=ncat,K=K,Z=Z)
+
+stanfit <- sampling(ordreg,standat,chains=1,iter=500,warmup=200,pars=c("alpha","beta","sigma_u","cutpoint"))
+
 
 
 mordreg <- stan_model("~/code/OrdRegMix/mordreg.stan")
 
-n <- 1000
+n <- 500
 p <- 3
 ncat <- c(2,3,4)
 d <- length(ncat)
@@ -28,14 +40,25 @@ d <- length(ncat)
 beta <- rnorm(p*d) %>% matrix(nrow=p)
 alpha <- rnorm(d)
 X <- rnorm(n*p) %>% matrix(nrow=n)
-y <- matrix(nrow=n,ncol=d)
+K <- c(5,10)
+Z <- sapply(K,function(x) sample(1:x,n,replace=T))
+sigma_u <- matrix(c(.75,0.1,1.0,0.25,0.5,0.5),nrow = 2)
+
 cp <- list()
+ytmp <- list()
 for (i in 1:d) {
   cp[[i]] <- c(0,runif(ncat[i]-2)*3) %>% sort()
-  y[,i] <- cut(alpha[i] + X %*% beta[,i] + rlogis(n),breaks = c(Inf,cp[[i]],-Inf),labels=F)
+  u <- lapply(1:length(K),function(x) sigma_u[x,i] * rnorm(K[x]))
+  eta <- alpha[i] + X %*% beta[,i] + rlogis(n)
+  for (k in 1:length(K)) eta <- eta + u[[k]][Z[,k]]
+  
+  ytmp[[i]] <- matrix(nrow=n,ncol=ncat[i])
+  for (j in 1:n) ytmp[[i]][j,] <- cut(eta[j] + rlogis(10),breaks = c(Inf,cp[[i]],-Inf),ordered_result = T) %>% table()
 }
-standat <- list(Y=y,X=X,N=n,P=p,D=d,L=ncat)
-stanfit <- sampling(mordreg,standat,chains=1,iter=500,warmup=250,init=0)
+y <- do.call(cbind,args=ytmp)
+standat <- list(Y=y,X=X,N=n,P=p,D=d,L=ncat,V=length(K),K=K,Z=Z)
+stanfit <- sampling(mordreg,standat,chains=2,iter=500,warmup=250,pars=c("alpha","beta","sigma_u","cutpoint"))
 
-standat <- list(y=y[,1],X=X,N=n,P=p,L=ncat[1])
-stanfit <- sampling(ordreg,standat,chains=1,iter=500,warmup=250,init=0)
+
+standat <- list(y=y[,3:5],X=X,N=n,P=p,V=length(K),L=ncat[2],K=K,Z=Z)
+stanfit <- sampling(ordreg,standat,chains=1,iter=400,warmup=200,pars=c("alpha","beta","sigma_u","cutpoint"))
