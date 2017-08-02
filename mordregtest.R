@@ -34,7 +34,7 @@ mordreg <- stan_model("~/code/OrdRegMix/mordreg.stan")
 
 n <- 500
 p <- 3
-ncat <- c(2,3,4)
+ncat <- c(2,3)
 d <- length(ncat)
 
 beta <- rnorm(p*d) %>% matrix(nrow=p)
@@ -42,14 +42,14 @@ alpha <- rnorm(d)
 X <- rnorm(n*p) %>% matrix(nrow=n)
 K <- c(5,10)
 Z <- sapply(K,function(x) sample(1:x,n,replace=T))
-sigma_u <- matrix(c(.75,0.1,1.0,0.25,0.5,0.5),nrow = 2)
+sigma_u <- matrix(c(1.0,0.1,0.5,1.5),nrow = 2)
 
 cp <- list()
 ytmp <- list()
 for (i in 1:d) {
   cp[[i]] <- c(0,runif(ncat[i]-2)*3) %>% sort()
   u <- lapply(1:length(K),function(x) sigma_u[x,i] * rnorm(K[x]))
-  eta <- alpha[i] + X %*% beta[,i] + rlogis(n)
+  eta <- alpha[i] + X %*% beta[,i]
   for (k in 1:length(K)) eta <- eta + u[[k]][Z[,k]]
   
   ytmp[[i]] <- matrix(nrow=n,ncol=ncat[i])
@@ -61,4 +61,11 @@ stanfit <- sampling(mordreg,standat,chains=2,iter=500,warmup=250,pars=c("alpha",
 
 
 standat <- list(y=y[,3:5],X=X,N=n,P=p,V=length(K),L=ncat[2],K=K,Z=Z)
+stanfit <- sampling(ordreg,standat,chains=1,iter=400,warmup=200,pars=c("alpha","beta","sigma_u","cutpoint"))
+
+
+Z <- matrix(1,n,length(K))
+ynew <- matrix(0,n,4)
+ynew[cbind(1:n,y[,3])] <- 1
+standat <- list(y=ynew,X=X,N=n,P=p,V=length(K),L=ncat[3],K=K,Z=Z)
 stanfit <- sampling(ordreg,standat,chains=1,iter=400,warmup=200,pars=c("alpha","beta","sigma_u","cutpoint"))
