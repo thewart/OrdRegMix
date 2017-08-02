@@ -12,15 +12,19 @@ functions {
 
 data {
   int N;          //num obs
-  int P;          //num predictors
+  int P1;          //num predictors
+  int P2;          //num regularized predictors
   int D;          //num dimensions
   int L[D];       //num levels for each dimension
   int V;          //number of variance components
   int K[V];       //number of levels per variance component
   
   int Y[N,sum(L)];
-  matrix[N,P] X;
+  matrix[N,P1] X1;
+  matrix[N,P2] X2;
   int Z[N,V];
+  
+  real<lower=1> nu; //degrees of freedom for gamma
 }
 
 transformed data {
@@ -34,14 +38,17 @@ transformed data {
 parameters {
   real<lower=0> sigma_u[V,D];
   vector[sum(K)] u_raw[D];           //raw random effects
-  matrix[P,D] beta;
-  vector[D] alpha;
+  matrix[P1,D] beta;                 //reg coeffs 
+  real<lower=0> sigma_l;
+  matrix[P2,D] lambda_raw;           //raw regularized reg coeffs
+  vector[D] alpha;                   //intercept
   vector<lower=0>[sum(L)-2*D] cutdiff;
 }
 
 transformed parameters {
   vector[sum(L)-D] cutpoint;
   vector[N] eta[D];
+  matrix[P2,D] lambda = sigma_l*lambda_raw;
   {
     int start = 1;
 
@@ -53,7 +60,7 @@ transformed parameters {
       }
       start = start + L[d]-1;
       
-      eta[d] = alpha[d] + X*beta[,d]; //+ sigma_g * L_A * g_raw;
+      eta[d] = alpha[d] + X1*beta[,d] + X2*lambda[,d]; //+ sigma_g * L_A * g_raw;
       for (v in 1:V) {
         vector[K[v]] u;
         u = sigma_u[v,d] * u_raw[d][vstart[v]:(vstart[v+1]-1)];
@@ -76,8 +83,9 @@ model {
     sigma_u[,d] ~ normal(0,2);
     u_raw[d] ~ normal(0,1);
   }
-  to_vector(beta) ~ student_t(4,0,2);
-  alpha ~ normal(0,2);
+  to_vector(beta) ~ student_t(4,0,2.5);
+  to_vector(lambda_raw) ~ student_t(nu,0,sigma_l);
+  alpha ~ normal(0,2.5);
   cutdiff ~ normal(0,5);
 }
 
