@@ -83,9 +83,9 @@ model {
     sigma_u[,d] ~ normal(0,2);
     u_raw[d] ~ normal(0,1);
   }
-  to_vector(beta) ~ student_t(4,0,2.5);
+  to_vector(beta) ~ student_t(4,0,2);
   to_vector(lambda_raw) ~ student_t(nu,0,1);
-  sigma_l ~ cauchy(0,1);
+  sigma_l ~ normal(0,2);
   alpha ~ normal(0,5);
   cutdiff ~ normal(0,5);
 }
