@@ -12,8 +12,8 @@ functions {
 
 data {
   int N;          //num obs
-  int P1;          //num predictors
-  int P2;          //num regularized predictors
+  int P1;         //num predictors
+  int P2;         //num regularized predictors
   int D;          //num dimensions
   int L[D];       //num levels for each dimension
   int V;          //number of variance components
