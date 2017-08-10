@@ -1,5 +1,5 @@
 source("/home/seth/code/LatentSocialPheno/parsefocaldata.R")
-source("/home/seth/code/LatentSocialPheno/rscript/getAge.R")
+source("/home/seth/code/LatentSocialPheno/getAge.R")
 basepath <- "~/Dropbox/focaldata_processed/"
 fpath <- paste0(basepath,"F2013/Txtexports_all_processed.csv")
 ptetho <- defaultpoint2()[type!="misc" & !(behavior%in%c("Vigilnce","PsCnTerm","GrmTerm","GrmPrsnt"))]
