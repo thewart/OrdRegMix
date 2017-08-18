@@ -18,11 +18,13 @@ data {
   int L[D];       //num levels for each dimension
   int V;          //number of variance components
   int K[V];       //number of levels per variance component
+  int R;          //number of biological replicates
   
   int Y[N,sum(L)];
   matrix[N,P1] X1;
   matrix[N,P2] X2;
   int Z[N,V];
+  matrix[N,R] L_A; //cholesky-like transformation of kinship matrix
   
   real<lower=1> nu; //degrees of freedom for gamma
 }
@@ -38,10 +40,12 @@ transformed data {
 parameters {
   real<lower=0> sigma_u[V,D];
   real<lower=0> sigma_l;
+  real<lower=0> sigma_g[D];
   vector[D] alpha;                   //intercept
   matrix[P1,D] beta;                 //reg coeffs 
   matrix[sum(K),D] u_raw;            //raw random effects
   matrix[P2,D] lambda_raw;           //raw regularized reg coeffs
+  matrix[R,D] g_raw;                 //raw genetic effects
   vector<lower=0>[sum(L)-2*D] cutdiff;
 }
 
@@ -49,6 +53,7 @@ transformed parameters {
   vector[sum(L)-D] cutpoint;
   vector[N] eta[D];
   matrix[P2,D] lambda = sigma_l*lambda_raw;
+  
   {
     int start = 1;
 
@@ -60,7 +65,7 @@ transformed parameters {
       }
       start = start + L[d]-1;
       
-      eta[d] = alpha[d] + X1*beta[,d] + X2*lambda[,d]; //+ sigma_g * L_A * g_raw;
+      eta[d] = alpha[d] + X1*beta[,d] + X2*lambda[,d] + sigma_g[d]*L_A*g_raw[,d];
       for (v in 1:V) {
         vector[K[v]] u;
         u = sigma_u[v,d] * u_raw[vstart[v]:(vstart[v+1]-1),d];
@@ -68,6 +73,7 @@ transformed parameters {
       }
     }
   }
+  
 }
 
 model {
@@ -80,12 +86,15 @@ model {
     for (i in 1:N) Y[i,(start+d-1):(start+d+L[d]-2)] ~ ordered_logistic_grouped(eta[d][i],cpd);
     start = start + L[d]-1;
   }
+  
   alpha ~ normal(0,5);
   to_vector(beta) ~ student_t(4,0,2);
   to_vector(u_raw) ~ normal(0,1);
+  to_vector(g_raw) ~ normal(0,1);
   to_vector(lambda_raw) ~ student_t(nu,0,1);
   for (d in 1:D) sigma_u[,d] ~ normal(0,2);
   sigma_l ~ normal(0,2);
+  sigma_g ~ normal(0,2);
   cutdiff ~ normal(0,5);
 }
 
