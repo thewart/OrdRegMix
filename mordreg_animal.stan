@@ -1,12 +1,27 @@
 functions {
-    real ordered_logistic_grouped_lpmf(int[] y, real eta, vector c) {
+    vector ordered_logistic_probabilities(real eta, vector c) {
       int L = num_elements(c) + 1;
       vector[L] theta;
 
       theta[1] = inv_logit(c[1]-eta);
       for (l in 2:(L-1)) theta[l] = inv_logit(c[l]-eta) - inv_logit(c[l-1]-eta);
       theta[L] = 1 - inv_logit(c[L-1]-eta);
+      return theta;
+    }
+    
+    real ordered_logistic_grouped_lpmf(int[] y, real eta, vector c) {
+      int L = num_elements(c) + 1;
+      vector[L] theta = ordered_logistic_probabilities(eta,c);
       return multinomial_lpmf(y | theta);
+    }
+    
+    real ordered_logistic_expectation(real eta, vector c) {
+      real ex = 0.0;
+      int L = num_elements(c) + 1;
+      vector[L] theta = ordered_logistic_probabilities(eta,c);
+      
+      for (l in 1:L) ex = ex + theta[l]*l;
+      return ex;
     }
 }
 
@@ -53,6 +68,7 @@ transformed parameters {
   vector[sum(L)-D] cutpoint;
   vector[N] eta[D];
   matrix[P2,D] lambda = sigma_l*lambda_raw;
+  matrix[N,D] g;
   
   {
     int start = 1;
@@ -65,7 +81,8 @@ transformed parameters {
       }
       start = start + L[d]-1;
       
-      eta[d] = alpha[d] + X1*beta[,d] + X2*lambda[,d] + sigma_g[d]*L_A*g_raw[,d];
+      g[,d] = sigma_g[d]*L_A*g_raw[,d];
+      eta[d] = alpha[d] + X1*beta[,d] + X2*lambda[,d] + g[,d];
       for (v in 1:V) {
         vector[K[v]] u;
         u = sigma_u[v,d] * u_raw[vstart[v]:(vstart[v+1]-1),d];
@@ -88,29 +105,63 @@ model {
   }
   
   alpha ~ normal(0,5);
-  to_vector(beta) ~ student_t(4,0,2);
+  to_vector(beta) ~ normal(0,5);
   to_vector(u_raw) ~ normal(0,1);
-  to_vector(g_raw) ~ normal(0,1);
   to_vector(lambda_raw) ~ student_t(nu,0,1);
-  for (d in 1:D) sigma_u[,d] ~ normal(0,2);
-  sigma_l ~ normal(0,2);
-  sigma_g ~ normal(0,2);
+  to_vector(g_raw) ~ normal(0,1);
+  for (d in 1:D) sigma_u[,d] ~ normal(0,5);
+  sigma_g ~ normal(0,5);
+  sigma_l ~ normal(0,5);
   cutdiff ~ normal(0,5);
 }
 
 generated quantities {
   real log_lik[N];
+  real pseudo_r2[D];
+  real pseudo_h2[D];
+  real r2[D];
   
   for (i in 1:N) log_lik[i] = 0;
   {
     int start = 1;
     for (d in 1:D) {
       vector[L[d]-1] cpd;
+      real yhat_full;
+      real yhat_nolam;
+      real yhat_alpha;
+      real yhat_nog;
+      real rss_full;
+      real rss_nolam;
+      real rss_nog;
+      real rss_alpha;
 
+      rss_full = 0;
+      rss_nolam = 0;
+      rss_nog = 0;
+      rss_alpha = 0;
       cpd = cutpoint[start:(start+L[d]-2)];
-      for (i in 1:N)  log_lik[i] = log_lik[i] + 
+      for (i in 1:N) {
+        #calc loglik
+        log_lik[i] = log_lik[i] + 
         ordered_logistic_grouped_lpmf(Y[i,(start+d-1):(start+d+L[d]-2)] | eta[d][i], cpd);
+        
+        #calc rhats
+        yhat_full = ordered_logistic_expectation(eta[d][i],cpd);
+        yhat_nolam = ordered_logistic_expectation(eta[d][i]-X2[i,]*lambda[,d], cpd);
+        yhat_nog = ordered_logistic_expectation(eta[d][i]-g[i,d], cpd);
+        yhat_alpha = ordered_logistic_expectation(alpha[d],cpd);
+        for (l in 1:L[d]) {
+          rss_full = rss_full + pow(yhat_full-l,2) * Y[i,(start+d-1):(start+d+L[d]-2)][l];
+          rss_nolam = rss_nolam + pow(yhat_nolam-l,2) * Y[i,(start+d-1):(start+d+L[d]-2)][l];
+          rss_alpha = rss_alpha + pow(yhat_alpha-l,2) * Y[i,(start+d-1):(start+d+L[d]-2)][l];
+          rss_nog = rss_nolam + pow(yhat_nolam-l,2) * Y[i,(start+d-1):(start+d+L[d]-2)][l];
+        }
+      }
+      pseudo_r2[d] = 1 - rss_full/rss_nolam;
+      pseudo_h2[d] = 1 - rss_full/rss_nog;
+      r2[d] = 1 - rss_full/rss_alpha;
       start = start + L[d]-1;
     }
   }
+  
 }
