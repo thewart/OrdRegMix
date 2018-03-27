@@ -29,6 +29,11 @@ function sample_α(y,X,fit,docrng,K)
     return α, fit
 end
 
+function sample_z(η,y,δ2)
+    γ = [-Inf,0,1,Inf];
+    return rand( Truncated( Normal(η,sqrt(δ2)), γ[y],γ[y+1]) );
+end
+
 function nd_to_docrng(nd)
     bounds = vcat(1,cumsum(nd));
     n = length(nd);

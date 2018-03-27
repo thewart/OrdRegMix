@@ -8,11 +8,11 @@ nd = repeat([20],inner=[n]);
 docrng = nd_to_docrng(nd);
 nobs = sum(nd);
 p = 3;
+cp = [-Inf, 0, 1.0, Inf];
 dim = 2;
-#cp = [[-Inf, 0, 2.0, Inf]];
 
-βout = randn(p,dim);
-#βout = zeros(p,dim);
+#βout = randn(p,dim);
+βout = zeros(p,dim);
 Xin = randn(n,p);
 #Xin = vcat(ones(1,n),randn(p-1,n));
 Xf = vcat(map(i-> repeat(Xin[i:i,:],outer=(nd[i],1)),1:n)...);
@@ -24,17 +24,17 @@ Xr = ModelMatrix(ModelFrame(@formula(y~0+ X),DataFrame(y=fill(0,n),
 Xr = repeat(Xr,inner=(nd[1],1))
 #Xr = randn(size(Xr));
 
-σ2_u_out = rand(v,dim);
-#σ2_u_out = zeros(v,dim);
+#σ2_u_out = rand(v,dim);
+σ2_u_out = zeros(v,dim);
 uout = [sqrt(σ2_u_out[d]) .* randn(l) for d=1:dim];
-σ2_out = rand(dim);
+σ2_out = [1.0,0.5];
 
 #### prep inner model
 σ_μ = 1.0;
 σ = 0.5;
 σ_β = 0.0;
-K = 3;
-αout = hcat([-1.0,1.0],[1.0,-1.0],[0.0,0.0])*1.0;
+K = 2;
+αout = hcat([-1.0,2.0],[1.0,-2.0])*1.0;
 #αout = rand(dim,K)*0;
 
 μ = randn(K)*σ_μ;
@@ -59,16 +59,17 @@ zin = vcat(zin...);
 #             pss0,hyperparameter());
 
 ##### back to outer
-y = Matrix{Float64}(nobs,dim);
+y = Matrix{Int64}(nobs,dim);
 for d in 1:dim
-    #tmp = cut(αout[d,zin] + Xf*βout[:,d] + Ztu(Xr,uout[d]) + randn(nobs),cp[d]);
-    #setlevels!(tmp,map(string,1:(length(cp[d])-1)));
-    #y[:,d] = parse.(tmp);
-    y[:,d] = αout[d,zin] + Xf*βout[:,d] + Ztu(Xr,uout[d]) + randn(nobs)*sqrt(σ2_out[d]);
+    tmp = cut(αout[d,zin] + Xf*βout[:,d] + Ztu(Xr,uout[d]) + randn(nobs)*sqrt(σ2_out[d]),cp);
+    setlevels!(tmp,map(string,1:(length(cp)-1)));
+    y[:,d] = parse.(tmp);
+    #y[:,d] = αout[d,zin] + Xf*βout[:,d] + Ztu(Xr,uout[d]) + randn(nobs)*sqrt(σ2_out[d]);
 end
 
 #### initialize
 #γ = [-Inf,0,1,Inf];
 #l = size.(Xr,1);
 
+hy = hyperparameter(τ_β=1e-6,τ0_u=1e-6,ν0_u=1e6);
 foo = lmmtopic(y,Xf,[Xr],Xin,docrng,K);
