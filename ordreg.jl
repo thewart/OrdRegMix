@@ -19,10 +19,11 @@ Xf = vcat(map(i-> repeat(Xin[i:i,:],outer=(nd[i],1)),1:n)...);
 
 v = 1;
 l = 50;
-Xr = ModelMatrix(ModelFrame(@formula(y~0+ X),DataFrame(y=fill(0,n),
-      X=@pdata(repeat(vcat(1:l),inner=div(n,l)))))).m
-Xr = repeat(Xr,inner=(nd[1],1))
-#Xr = randn(size(Xr));
+#Xr = ModelMatrix(ModelFrame(@formula(y~0+ X),DataFrame(y=fill(0,n),
+#      X=@pdata(repeat(vcat(1:l),inner=div(n,l)))))).m
+#Xr = repeat(Xr,inner=(nd[1],1))
+#Xr = Xr*0;
+Xr = randn(size(Xr));
 
 σ2_u_out = rand(v,dim);
 #σ2_u_out = zeros(v,dim);
@@ -34,7 +35,7 @@ uout = [sqrt(σ2_u_out[d]) .* randn(l) for d=1:dim];
 σ = 0.5;
 σ_β = 0.0;
 K = 3;
-αout = hcat([-1.0,1.0],[1.0,-1.0],[0.0,0.0])*1.0;
+αout = hcat([-1.0,1.0],[1.0,-1.0],[0.0,0.0])*2.0;
 #αout = rand(dim,K)*0;
 
 μ = randn(K)*σ_μ;
@@ -71,4 +72,10 @@ end
 #γ = [-Inf,0,1,Inf];
 #l = size.(Xr,1);
 
+#hy = hyperparameter(τ_β=1e-6,τ0_u=1e-6,ν0_u=1e6);
 foo = lmmtopic(y,Xf,[Xr],Xin,docrng,K);
+
+function gf(value::Vector{HYBRIDsample},name::Symbol)
+    nd = ndims(getfield(value[1],name));
+    return cat(nd+1,getfield.(value,name)...)
+end
