@@ -22,7 +22,7 @@ l = 50;
 Xr = ModelMatrix(ModelFrame(@formula(y~0+ X),DataFrame(y=fill(0,n),
       X=@pdata(repeat(vcat(1:l),inner=div(n,l)))))).m
 Xr = repeat(Xr,inner=(nd[1],1))
-#Xr = randn(size(Xr));
+Xr = randn(size(Xr));
 
 #σ2_u_out = rand(v,dim);
 σ2_u_out = zeros(v,dim);
@@ -33,8 +33,8 @@ uout = [sqrt(σ2_u_out[d]) .* randn(l) for d=1:dim];
 σ_μ = 1.0;
 σ = 0.5;
 σ_β = 0.0;
-K = 2;
-αout = hcat([-1.0,2.0],[1.0,-2.0])*1.0;
+K = 3;
+αout = hcat([-1.0,2.0],[1.0,-2.0],[0.5,0.5])*1.0;
 #αout = rand(dim,K)*0;
 
 μ = randn(K)*σ_μ;

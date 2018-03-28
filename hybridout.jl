@@ -75,7 +75,7 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K,hy=hyperparameter();hyin=hyperparameter()
             resid[:,d] = z[:,d] - α_Xβ_Zu;
             bigvec = vcat(resid[:,d], s.β[:,d]./sqrt(hy[:τ_β]),
                 vcat((s.u[:,d]./sqrt.(s.σ2_u))...));
-            s.σ2[d] = sample_σ2(bigvec,hy[:ν0_σ2η],hy[:τ0_σ2η]);
+            s.σ2[d] = sample_σ2(bigvec,hy[:ν0_τ],hy[:τ0_τ]);
 
         end
 

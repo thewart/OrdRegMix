@@ -9,10 +9,10 @@ function sample_u!{T<:AbstractArray}(u::Vector{T},σ2_u,y,X,σ2)
     if v>1
         for i in 1:v
             otherz = setdiff(1:v,i);
-            u[i] = sample_β(y-Ztu(X[otherz],u[otherz]),X[i],σ2_u[i],σ2);
+            u[i] .= sample_β(y-Ztu(X[otherz],u[otherz]),X[i],σ2_u[i],σ2);
         end
     else
-        u[1] = sample_β(y,X[1],σ2_u[1],σ2);
+        u[1] .= sample_β(y,X[1],σ2_u[1],σ2);
     end
 end
 
