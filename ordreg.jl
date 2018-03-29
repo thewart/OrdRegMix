@@ -19,9 +19,9 @@ Xf = vcat(map(i-> repeat(Xin[i:i,:],outer=(nd[i],1)),1:n)...);
 
 v = 1;
 l = 50;
-#Xr = ModelMatrix(ModelFrame(@formula(y~0+ X),DataFrame(y=fill(0,n),
-#      X=@pdata(repeat(vcat(1:l),inner=div(n,l)))))).m
-#Xr = repeat(Xr,inner=(nd[1],1))
+Xr = ModelMatrix(ModelFrame(@formula(y~0+ X),DataFrame(y=fill(0,n),
+      X=@pdata(repeat(vcat(1:l),inner=div(n,l)))))).m
+Xr = repeat(Xr,inner=(nd[1],1))
 #Xr = Xr*0;
 Xr = randn(size(Xr));
 

@@ -31,11 +31,13 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K,hy=hyperparameter();hyin=hyperparameter()
     v = length(Xr);
     l = size.(Xr,2);
 
+    ν0_α = 0.001;
+    μ0_α = 0.0;
     s = init_params(p,l,dim);
     fit = TLMMfit([init_params(K,length(docrng),size(Xin,2))],
-    Matrix{Vector{NormalMeanPosterior}}(0,0),
-    [NormalMeanPosterior(0.0,0.001,1.0) for i=1:dim],
-    hyin);
+        Matrix{Vector{NormalMeanPosterior}}(0,0),
+        [NormalMeanPosterior(μ0_α,ν0_α,1.0) for i=1:dim],
+        hyin);
     resid = Array{Float64,2}(nobs,dim);
 
     saveiter = thin:thin:iter;
@@ -56,18 +58,21 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K,hy=hyperparameter();hyin=hyperparameter()
 
         for d in 1:dim
             resid[:,d] = y[:,d] - (α_expand[:,d] + Ztu(Xr,s.u[:,d]));
-            s.β[:,d] = sample_β(resid[:,d],Xf,hy[:τ_β],s.σ2[d]);
+            s.β[:,d] = sample_β(resid[:,d],Xf,hy[:τ_β]*s.σ2[d],s.σ2[d]);
 
             α_Xβ = α_expand[:,d] + Xf*s.β[:,d];
             resid[:,d] = y[:,d] - α_Xβ;
-            sample_u!(s.u[:,d],s.σ2_u[:,d],resid[:,d],Xr,s.σ2[d]);
-            s.σ2_u[:,d] = sample_σ2.(s.u[:,d],hy[:ν0_u],hy[:τ0_u]);
+            sample_u!(s.u[:,d],s.σ2_u[:,d]*s.σ2[d],resid[:,d],Xr,s.σ2[d]);
+            s.σ2_u[:,d] = sample_σ2.(s.u[:,d]./sqrt(s.σ2[d]),hy[:ν0_u],hy[:τ0_u]);
 
             α_Xβ_Zu = α_Xβ + Ztu(Xr,s.u[:,d]);
             #z[:,d] = sample_z.(α_Xβ_Zu,y[:,d],γ[d],σ2[d]);
 
             resid[:,d] = y[:,d] - α_Xβ_Zu;
-            s.σ2[d] = sample_σ2(resid[:,d],hy[:ν0_τ],hy[:τ0_τ]);
+            bigvec = vcat(resid[:,d],(s.α[d,:].-μ0_α)*sqrt(ν0_α),
+                    s.β[:,d]./sqrt(hy[:τ_β]),
+                    vcat(s.u[:,d]./sqrt.(s.σ2_u[d])...));
+            s.σ2[d] = sample_σ2(bigvec,hy[:ν0_τ],hy[:τ0_τ]);
 
         end
 
