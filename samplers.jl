@@ -29,15 +29,9 @@ function sample_α(y,X,fit,docrng,K)
     return α, fit
 end
 
-function sample_z(η,y,δ2)
-    γ = [-Inf,0,1,Inf];
+function sample_z(η,y,δ2,cp)
+    γ = [-Inf,0,cp,Inf];
     return rand( Truncated( Normal(η,sqrt(δ2)), γ[y],γ[y+1]) );
-end
-
-function nd_to_docrng(nd)
-    bounds = vcat(1,cumsum(nd));
-    n = length(nd);
-    return [bounds[i]:bounds[i+1] for i=1:n];
 end
 
 function Ztu{T<:AbstractVector}(Z,u::Vector{T})
