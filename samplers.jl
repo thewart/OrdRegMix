@@ -1,18 +1,19 @@
-function sample_β(y,X,σ2_β,σ2)
+function sample_β(y::Vector{Float64},X,σ2_β,σ2)
     p = size(X,2);
     Lβ = inv( chol(X'X./σ2 + I*inv(σ2_β)) );
     return Lβ*Lβ'*X'y./σ2 + Lβ*randn(p);
  end
 
-function sample_u!{T<:AbstractArray}(u::Vector{T},σ2_u,y,X,σ2)
-    v = length(X);
-    if v>1
-        for i in 1:v
-            otherz = setdiff(1:v,i);
-            u[i] .= sample_β(y-Ztu(X[otherz],u[otherz]),X[i],σ2_u[i],σ2);
-        end
-    else
-        u[1] .= sample_β(y,X[1],σ2_u[1],σ2);
+function sample_u_inner(y,Λ,σ2)
+    n,d = size(y);
+    Lu = inv(chol(Diagonal(inv.(σ2).*n) + Λ));
+    return Lu*Lu'*vec(sum(y,1))./σ2 + Lu*randn(d);
+end
+
+function sample_u!(u,y,Z,Σ,σ2)
+    Λ = Hermitian(inv(Σ));
+    for i in 1:size(Z,2)
+        u[i,:] = sample_u_inner(y[Z[:,i],:],Λ,σ2);
     end
 end
 
@@ -34,10 +35,17 @@ function sample_z(η,y,δ2,cp)
     return rand( Truncated( Normal(η,sqrt(δ2)), γ[y],γ[y+1]) );
 end
 
-function Ztu{T<:AbstractVector}(Z,u::Vector{T})
+function sample_Σ(u,σ2diag,ν0,a0)
+    a = rand.(InverseGamma.(0.5*(ν0+length(σ2diag)),ν0.*σ2diag .+ a0^-2))
+    ν = ν0 + size(u,1) + size(u,2);
+    P = u'u + Diagonal(inv.(a));
+    return rand(InverseWishart(ν,P))
+end
+
+function Ztu{T<:AbstractArray}(Z,u::Vector{T})
     return reduce(+,Z.*u)
 end
 
-function Ztu{T<:AbstractVector}(Z,u::T)
+function Ztu{T<:AbstractMatrix}(Z,u::T)
     return Z*u
 end
