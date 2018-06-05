@@ -56,8 +56,7 @@ end
 function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter(),
     init=init_params(size(Xf,2),size.(Xr,2),size(y,2)),
     initin=init_params(K,length(docrng),size(Xin,2)),
-    cp=repeat([-Inf,0,1,Inf],outer=(1,size(y,2))),
-    iter=1000,thin=1)
+    cp=fill(1,size(y,2)),iter=1000,thin=1)
 
     p = size(Xf,2);
     n,dim = size(y);
@@ -69,10 +68,14 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter()
     #s = init_params(p,l,dim);
     s = deepcopy(init);
 
-    α_expand =  s.α[:,initin.z]';
-    η = Matrix{Float64}(size(y));
-    for d=1:dim η[:,d] = α_expand[:,d] + Xf*s.β[:,d] + Ztu(Xr,s.u[:,d]); end
-    z = [sample_z(η[i,d],y[i,d],s.σ2[d],cp[:,d]) for i=1:n, d=1:dim];
+    if isdefined(initin,:z)
+        α_expand =  s.α[:,initin.z]';
+        η = Matrix{Float64}(size(y));
+        for d=1:dim η[:,d] = α_expand[:,d] + Xf*s.β[:,d] + Ztu(Xr,s.u[:,d]); end
+        z = [sample_z(η[i,d],y[i,d],s.σ2[d],cp[d]) for i=1:n, d=1:dim];
+    else
+        z = [sample_z(0.0,y[i,d],s.σ2[d],cp[d]) for i=1:n, d=1:dim];
+    end
 
     fit = TLMMfit([initin],
         Matrix{Vector{NormalMeanPosterior}}(0,0),
@@ -106,7 +109,7 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter()
             s.σ2_u[:,d] = sample_σ2.(s.u[:,d]./sqrt(s.σ2[d]),hy[:ν0_u],hy[:τ0_u]);
 
             α_Xβ_Zu = α_Xβ + Ztu(Xr,s.u[:,d]);
-            z[:,d] = sample_z.(α_Xβ_Zu,y[:,d],s.σ2[d],cp[:,d]);
+            z[:,d] = sample_z.(α_Xβ_Zu,y[:,d],s.σ2[d],cp[d]);
 
             resid[:,d] = z[:,d] - α_Xβ_Zu;
             bigvec = vcat(resid[:,d],(s.α[d,:].-μ0_α)*sqrt(ν0_α),

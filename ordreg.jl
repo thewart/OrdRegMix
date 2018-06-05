@@ -1,7 +1,10 @@
 import Lazy.@>, Lazy.@>>, Lazy.@as
 #using FreqTables.freqtable
-using DataFrames, Distributions, LogTopReg
+using DataFrames, Distributions, LogTopReg, CategoricalArrays, StatsModels, StatsBase, StatsFuns
 import LogTopReg.init_params, LogTopReg.init_params!
+include("/home/seth/code/OrdRegMix/hybridout.jl");
+include("/home/seth/code/OrdRegMix/samplers.jl");
+
 ###### prep outer data
 n = 200;
 nd = repeat([20],inner=[n]);
@@ -20,9 +23,9 @@ Xf = vcat(map(i-> repeat(Xin[i:i,:],outer=(nd[i],1)),1:n)...);
 v = 1;
 l = 100;
 Xr = ModelMatrix(ModelFrame(@formula(y~0+ X),DataFrame(y=fill(0,n),
-      X=@pdata(repeat(vcat(1:l),inner=div(n,l)))))).m
-Xr = repeat(Xr,inner=(nd[1],1))
-Xr = randn(size(Xr));
+      X=CategoricalArray(repeat(vcat(1:l),inner=div(n,l)))))).m;
+Xr = repeat(Xr,inner=(nd[1],1));
+#Xr = randn(size(Xr));
 
 σ2_u_out = rand(v,dim);
 #σ2_u_out = zeros(v,dim);
@@ -61,8 +64,8 @@ zin = vcat(zin...);
 ##### back to outer
 y = Matrix{Int64}(nobs,dim);
 for d in 1:dim
-    tmp = cut(αout[d,zin] + Xf*βout[:,d] + Ztu(Xr,uout[d]) + randn(nobs)*sqrt(σ2_out[d]),cp);
-    setlevels!(tmp,map(string,1:(length(cp)-1)));
+    tmp = cut(αout[d,zin] + Xf*βout[:,d] + Ztu(Xr,uout[d]) + randn(nobs)*sqrt(σ2_out[d]),cp,
+        labels=map(string,1:(length(cp)-1)));
     y[:,d] = parse.(tmp);
     #y[:,d] = αout[d,zin] + Xf*βout[:,d] + Ztu(Xr,uout[d]) + randn(nobs)*sqrt(σ2_out[d]);
 end
@@ -72,7 +75,7 @@ end
 #l = size.(Xr,1);
 
 hy = hyperparameter(τ_β=1e-6);
-foo = lmmtopic(y,Xf,[Xr],Xin,docrng,K,hy,iter=2000);
+foo = lmmtopic(y,Xf,[Xr],Xin,docrng,K,hy=hy,iter=1000);
 
 import LogTopReg.gf
 function gf(value::Vector{HYBRIDsample},name::Symbol)
