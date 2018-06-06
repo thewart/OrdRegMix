@@ -1,20 +1,43 @@
-function sample_β(y,X,σ2_β,σ2)
+function sample_β{T<:Real}(y,X,σ2_β::T,σ2)
     p = size(X,2);
-    Lβ = inv( chol(X'X./σ2 + I*inv(σ2_β)) );
+    Σ = Diagonal(fill(inv(σ2_β),p));
+    return sample_β(y,X,Σ,σ2);
+end
+
+function sample_β{T<:AbstractVector}(y,X,σ2_β::T,σ2)
+    Σ = Diagonal(σ2_β);
+    return sample_β(y,X,Σ,σ2);
+end
+
+function sample_β{T<:AbstractMatrix}(y,X,Σ_β::T,σ2)
+    p = size(X,2);
+    Lβ = inv(chol(X'X./σ2 + Σ_β));
     return Lβ*Lβ'*X'y./σ2 + Lβ*randn(p);
  end
 
-function sample_u!{T<:AbstractArray}(u::Vector{T},σ2_u,y,X,σ2)
-    v = length(X);
+function sample_u!(u,σ2_u,y,Z,σ2)
+    v = length(Z);
     if v>1
         for i in 1:v
             otherz = setdiff(1:v,i);
-            u[i] .= sample_β(y-Ztu(X[otherz],u[otherz]),X[i],σ2_u[i],σ2);
+            resid = y - Ztu(Z[otherz],u[otherz]);
+            sample_u_inner!(u[i],σ2_u[i,:],resid,Z[i],σ2);
         end
     else
-        u[1] .= sample_β(y,X[1],σ2_u[1],σ2);
+        sample_u_inner!(u[1],σ2_u[1,:],y,Z[1],σ2);
     end
 end
+
+function sample_u_inner!(u,σ2_u,y,Z,σ2)
+    n = size(Z,2);
+    d = size(y,2);
+    for i in 1:n
+        tmp = y[Z[:,i],:];
+        X = repeat(eye(d),inner=(size(tmp,1),1));
+        u[i,:] .= sample_β(vec(tmp),X,σ2_u.*σ2,σ2);
+    end
+end
+
 
 function sample_σ2(y,ν0,τ0);
   a = 0.5*(length(y)+ν0);
@@ -34,10 +57,6 @@ function sample_z(η,y,δ2,cp)
     return rand( Truncated( Normal(η,sqrt(δ2)), γ[y],γ[y+1]) );
 end
 
-function Ztu{T<:AbstractVector}(Z,u::Vector{T})
+function Ztu{T<:AbstractMatrix}(Z,u::Vector{T})
     return reduce(+,Z.*u)
-end
-
-function Ztu{T<:AbstractVector}(Z,u::T)
-    return Z*u
 end

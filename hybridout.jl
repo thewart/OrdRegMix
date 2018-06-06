@@ -1,7 +1,7 @@
 mutable struct HYBRIDsample
     α::Matrix{Float64}
     β::Matrix{Float64}
-    u::Matrix{Vector{Float64}}
+    u::Vector{Matrix{Float64}}
 
     σ2::Vector{Float64}
     σ2_u::Matrix{Float64}
@@ -11,33 +11,11 @@ mutable struct HYBRIDsample
     HYBRIDsample() = new();
 end
 
-import Base.mean
-function mean(samps::Vector{HYBRIDsample})
-    meanfit = HYBRIDsample();
-
-    tmp = gf(samps,:α);
-    meanfit.α = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
-    tmp = gf(samps,:β);
-    meanfit.β = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
-    tmp = gf(samps,:σ2);
-    meanfit.σ2 = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
-    tmp = gf(samps,:σ2_u);
-    meanfit.σ2_u = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
-
-    v,dim = size(meanfit.σ2_u,1,2)
-    tmp = gf(samps,:u);
-    meanfit.u = [squeeze(mean(hcat(tmp[i,j,:]...),2),2) for i in 1:v, j in 1:dim];
-
-    meanfit.tlmm = mean([i.tlmm for i in samps]);
-
-    return meanfit
-end
-
 function init_params!(samp::HYBRIDsample,p::Int,l::Vector{Int},dim::Int)
     v = length(l);
     samp.β = randn(p,dim);
     samp.σ2 = rand(dim);
-    samp.u = [randn(i) for i=l, d=1:dim];
+    samp.u = [randn(i,dim) for i=l];
     samp.σ2_u = rand(v,dim)*2;
 
     return samp
@@ -92,31 +70,38 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter()
     ##### run model
     for t in 1:iter
 
+        resid = z - Xf*s.β - Ztu(Xr,s.u);
         for d in 1:dim
-            resid[:,d] = z[:,d] - Xf*s.β[:,d] - Ztu(Xr,s.u[:,d]);
             fit.prior[d].σ2 = s.σ2[d];
         end
         s.α, fit = sample_α(resid',Xin',fit,docrng,K);
         α_expand =  s.α[:,fit.θ[1].z]';
 
+        resid = z - (α_expand + Ztu(Xr,s.u));
         for d in 1:dim
-            resid[:,d] = z[:,d] - (α_expand[:,d] + Ztu(Xr,s.u[:,d]));
             s.β[:,d] = sample_β(resid[:,d],Xf,hy[:τ_β]*s.σ2[d],s.σ2[d]);
+        end
 
-            α_Xβ = α_expand[:,d] + Xf*s.β[:,d];
-            resid[:,d] = z[:,d] - α_Xβ;
-            sample_u!(s.u[:,d],s.σ2_u[:,d].*s.σ2[d],resid[:,d],Xr,s.σ2[d]);
-            s.σ2_u[:,d] = sample_σ2.(s.u[:,d]./sqrt(s.σ2[d]),hy[:ν0_u],hy[:τ0_u]);
+        α_Xβ = α_expand + Xf*s.β;
+        resid = z - α_Xβ;
+        sample_u!(s.u,s.σ2_u,resid,Xr,s.σ2);
 
-            α_Xβ_Zu = α_Xβ + Ztu(Xr,s.u[:,d]);
-            z[:,d] = sample_z.(α_Xβ_Zu,y[:,d],s.σ2[d],cp[d]);
+        for d in 1:dim
+            for j in 1:v
+                s.σ2_u[j,d] = sample_σ2(s.u[j][:,d]./sqrt(s.σ2[d]),hy[:ν0_u],hy[:τ0_u]);
+            end
+        end
 
-            resid[:,d] = z[:,d] - α_Xβ_Zu;
+        α_Xβ_Zu = α_Xβ + Ztu(Xr,s.u);
+
+        for d in 1:dim
+            z[:,d] .= sample_z.(α_Xβ_Zu[:,d],y[:,d],s.σ2[d],cp[d]);
+
+            resid[:,d] = z[:,d] - α_Xβ_Zu[:,d];
             bigvec = vcat(resid[:,d],(s.α[d,:].-μ0_α)*sqrt(ν0_α),
                     s.β[:,d]./sqrt(hy[:τ_β]),
-                    vcat(s.u[:,d]./sqrt.(s.σ2_u[d])...));
+                    vcat([s.u[i][:,d]./sqrt.(s.σ2_u[i,d]) for i in 1:v]...));
             s.σ2[d] = sample_σ2(bigvec,hy[:ν0_τ],hy[:τ0_τ]);
-
         end
 
         if t ∈ saveiter
@@ -133,6 +118,28 @@ import LogTopReg.gf
 function gf(value::Vector{HYBRIDsample},name::Symbol)
     nd = ndims(getfield(value[1],name));
     return cat(nd+1,getfield.(value,name)...)
+end
+
+import Base.mean
+function mean(samps::Vector{HYBRIDsample})
+    meanfit = HYBRIDsample();
+
+    tmp = gf(samps,:α);
+    meanfit.α = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
+    tmp = gf(samps,:β);
+    meanfit.β = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
+    tmp = gf(samps,:σ2);
+    meanfit.σ2 = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
+    tmp = gf(samps,:σ2_u);
+    meanfit.σ2_u = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
+
+    v,dim = size(meanfit.σ2_u,1,2)
+    tmp = gf(samps,:u);
+    meanfit.u = [squeeze(mean(hcat(tmp[i,j,:]...),2),2) for i in 1:v, j in 1:dim];
+
+    meanfit.tlmm = mean([i.tlmm for i in samps]);
+
+    return meanfit
 end
 
 ###### prediction for new samples from old groups

@@ -24,12 +24,12 @@ v = 1;
 l = 100;
 Xr = ModelMatrix(ModelFrame(@formula(y~0+ X),DataFrame(y=fill(0,n),
       X=CategoricalArray(repeat(vcat(1:l),inner=div(n,l)))))).m;
-Xr = repeat(Xr,inner=(nd[1],1));
+Xr = [convert.(Bool,repeat(Xr,inner=(nd[1],1)))];
 #Xr = randn(size(Xr));
 
 σ2_u_out = rand(v,dim);
 #σ2_u_out = zeros(v,dim);
-uout = [sqrt(σ2_u_out[d]) .* randn(l) for d=1:dim];
+uout = [hcat([sqrt(σ2_u_out[d]) .* randn(l) for d=1:dim]...)];
 σ2_out = rand(dim);
 
 #### prep inner model
@@ -37,7 +37,7 @@ uout = [sqrt(σ2_u_out[d]) .* randn(l) for d=1:dim];
 σ = 0.5;
 σ_β = 0.0;
 K = 2;
-αout = randn(dim,K);
+αout = randn(dim,K)*0.75;
 #αout = rand(dim,K)*0;
 
 μ = randn(K)*σ_μ;
@@ -63,9 +63,9 @@ zin = vcat(zin...);
 
 ##### back to outer
 y = Matrix{Int64}(nobs,dim);
+eta = αout[:,zin]' + Xf*βout + Ztu(Xr,uout) + randn(nobs,dim).*sqrt.(σ2_out)'
 for d in 1:dim
-    tmp = cut(αout[d,zin] + Xf*βout[:,d] + Ztu(Xr,uout[d]) + randn(nobs)*sqrt(σ2_out[d]),cp,
-        labels=map(string,1:(length(cp)-1)));
+    tmp = cut(eta[:,d],cp,labels=map(string,1:(length(cp)-1)));
     y[:,d] = parse.(tmp);
     #y[:,d] = αout[d,zin] + Xf*βout[:,d] + Ztu(Xr,uout[d]) + randn(nobs)*sqrt(σ2_out[d]);
 end
@@ -75,7 +75,7 @@ end
 #l = size.(Xr,1);
 
 hy = hyperparameter(τ_β=1e-6);
-foo = lmmtopic(y,Xf,[Xr],Xin,docrng,K,hy=hy,iter=1000);
+foo = lmmtopic(y,Xf,Xr,Xin,docrng,K,hy=hy,iter=1000);
 
 import LogTopReg.gf
 function gf(value::Vector{HYBRIDsample},name::Symbol)
