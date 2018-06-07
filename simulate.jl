@@ -1,9 +1,5 @@
-import Lazy.@>, Lazy.@>>, Lazy.@as
-#using FreqTables.freqtable
-using DataFrames, Distributions, LogTopReg, CategoricalArrays, StatsModels, StatsBase, StatsFuns
-import LogTopReg.init_params, LogTopReg.init_params!
-include("/home/seth/code/OrdRegMix/hybridout.jl");
-include("/home/seth/code/OrdRegMix/samplers.jl");
+using DataFrames, Distributions, LogTopReg, CategoricalArrays,
+    StatsModels, StatsBase, StatsFuns
 
 ###### prep outer data
 n = 200;
@@ -73,12 +69,3 @@ end
 #### initialize
 #γ = [-Inf,0,1,Inf];
 #l = size.(Xr,1);
-
-hy = hyperparameter(τ_β=1e-6);
-foo = lmmtopic(y,Xf,Xr,Xin,docrng,K,hy=hy,iter=1000);
-
-import LogTopReg.gf
-function gf(value::Vector{HYBRIDsample},name::Symbol)
-    nd = ndims(getfield(value[1],name));
-    return cat(nd+1,getfield.(value,name)...)
-end
