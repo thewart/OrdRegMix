@@ -5,7 +5,7 @@ function sample_β{T<:Real}(y,X,σ2_β::T,σ2)
 end
 
 function sample_β{T<:AbstractVector}(y,X,σ2_β::T,σ2)
-    Σ = Diagonal(σ2_β);
+    Σ = Diagonal(inv.(σ2_β));
     return sample_β(y,X,Σ,σ2);
 end
 
