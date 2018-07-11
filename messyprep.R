@@ -17,13 +17,12 @@ F_2016 <- F_2016[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`,Duration,Behavior,`Behavior Modifier`,PartnerID)]
 F_2016$Group <- "F"
 
-# F_2014 <- as.data.table(F_2014)
-# F_2014[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,x,x__1,x__2,sep="; ")]
-# F_2014[,Year:=as.character(Year)]
-# F_2014[,Year:="2014"]
-# F_2014 <- F_2014[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
-#                     `Start Time`,`Stop Time`, Duration, Behavior,`Behavior Modifier`,PartnerID)]
-# F_2014$Group <- "F"
+F_2014[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,x,x_1,x_2,sep="; ")]
+F_2014[,Year:=as.character(Year)]
+F_2014[,Year:="2014"]
+F_2014 <- F_2014[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
+                    `Start Time`,`Stop Time`, Duration, Behavior,`Behavior Modifier`,PartnerID)]
+F_2014$Group <- "F"
 
 V_2015 <- as.data.table(V_2015)
 V_2015[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,X,X__1,X__2,sep="; ")]
@@ -49,7 +48,7 @@ KK_2015 <- KK_2015[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`,Duration,Behavior,`Behavior Modifier`,PartnerID)]
 KK_2015$Group <- "KK"
 
-all_files <- list(KK_2015, V_2015, V_2016, F_2016)
+all_files <- list(F_2014, KK_2015, V_2015, V_2016, F_2016)
 juh <- do.call(rbind,all_files)
 juh[,`Behavior Modifier`:=str_replace_all(`Behavior Modifier`,"NA;*","")]
 setnames(juh,c("EventName","Observation","FocalID","Observer","Year","StartTime",
@@ -90,6 +89,8 @@ all_obs <- all_obs[all_obs[,paste0(FocalID,Year,Group)] %in% obskeep[,paste0(Foc
 
 all_obs[,NonConAgg_give:=`threat:direct'n(give)` + `noncontactAgg:direct'n(give)`]
 all_obs[,NonConAgg_rec:=`threat:direct'n(receive)` + `noncontactAgg:direct'n(receive)`]
+all_obs[,Agg_give:=`threat:direct'n(give)` + `noncontactAgg:direct'n(give)` + `contactAgg:direct'n(give)`]
+all_obs[,Agg_rec:=`threat:direct'n(receive)` + `noncontactAgg:direct'n(receive)` + `contactAgg:direct'n(receive)`]
 all_obs[,Avoid_give:=`displace:winner?(foc)` + `avoid:winner?(foc)`]
 all_obs[,Avoid_rec:=`displace:winner?(partnr)` + `avoid:winner?(partnr)`]
 all_obs[,SDB:= SelfGrm + Scratch]

@@ -5,12 +5,17 @@ library(standardize)
 library(lme4)
 source("~/code/OrdRegMix/messyprep.R")
 
-behaviors = c("SDB","Travel","Feed","GroomGIVE", "GroomGET","passcont","Approach:initiate(focal)", "Approach:initiate(partner)","Agg_give","Agg_rec")
+behaviors = c("SDB","GroomGIVE", "GroomGET","passcont","Approach:initiate(focal)", "Approach:initiate(partner)",
+              "NonConAgg_give","NonConAgg_rec","contactAgg:direct'n(give)","contactAgg:direct'n(receive)")
 d <- length(behaviors)
-leftside <- "factor(Year) + Group + SEX + poly(Age,2) + ORD_RANK + (1|FocalID) + (1|Observer)"
+#leftside <- "factor(Year) + Group + SEX + poly(Age,2) + ORD_RANK + (1|FocalID) + (1|Observer)"
+leftside <- "factor(Year) + poly(Age,2) + ORD_RANK + (1|FocalID) + (1|Observer)"
 #used_obs <- all_obs[Year>2011]
-used_obs <- all_obs
+used_obs <- all_obs[Group=="F" & SEX=="f"]
 
+Xdf <- unique(used_obs[,.(Group=names(which.max(table(Group))),SEX,Y=mean(SDB)),by=FocalID])
+std <- standardize(Y~Group + SEX,Xdf)
+Xin <- model.matrix(lm(std$formula,std$data))[,-1]
 #get design matrix
 std <- standardize(as.formula(paste0(behaviors[1]," ~ ",leftside)),used_obs)
 Xf <- model.matrix(lmer(formula=std$formula,data=std$data))[,-1]
@@ -37,81 +42,69 @@ for (i in 1:d) {
   #eta[,i] <- eta[,i]-baseline[i]
 }
 
-nfold <- 20
-fold <- sample(rep(1:nfold,nrow(Y)/nfold))
+#save progress
+#save(Xf,Xr1,Xr2,Y,fit,fixed,ranid,ranobs,eta,baseline,cutdiff,file="~/analysis/OrdRegMix/062118fF/clmmfits.Rdat")
 
-ordmodel <- stan_model("~/code/OrdRegMix/mordreg_topic.stan")
+# load("~/analysis/OrdRegMix/062518fF/clmmfits.Rdat")
+
+nfold <- 8
+fold <- sample(rep(1:nfold,ceiling(nrow(Y)/nfold)),size=nrow(Y))
 ordmodel_cv <- stan_model("~/code/OrdRegMix/mordreg_topic_cv.stan")
-K <- 5
-standat <- list(N=nrow(eta),D=d,K=K,Y=Y,
-                eta=eta,L=rep(3,d))
-system.time(juh <- foreach(1:8) %dopar% {library(rstan); library(gtools)
-  standat$K <- K
-  init <- list(gamma=-rep(baseline,K) %>% array(dim = c(d,K)) + rnorm(K*d,sd = 0.5),
-               pi=MCMCpack::rdirichlet(1,rep(1,K)) %>% as.vector(),
-               cutdiff=cutdiff)
-  stanfit <- optimizing(ordmodel,standat,init=init,as_vector=F,verbose=T,tol_obj=0.01)
-  return(stanfit)
-})
-init <- juh[[which.min(sapply(juh,function(x) x$val))]]$par
+ordmodel <- stan_model("~/code/OrdRegMix/mordreg_topic.stan")
 
-juh <- foreach(i=1:nfold) %dopar% {library(rstan); library(gtools)
-  standat <- list(N=sum(fold!=i),D=d,K=K,Y=Y[fold!=i,],eta=eta[fold!=i,],L=rep(3,d),
-                  N_out=sum(fold==i),Y_out=Y[fold==i,],eta_out=eta[fold==i,])
-  stanfit <- optimizing(ordmodel_cv,standat,init=init,as_vector=F,verbose=T,tol_obj=0.01)
+K <- c(1:8)
+stanfitlist <- list()
+for (i in 1:length(K)) { 
+  cl <- readyparallel(4)
+  cat(paste0(i,"\n"))
+  standat <- list(N=nrow(eta),D=d,K=K[i],Y=Y,
+                  eta=eta,L=rep(3,d))
+  system.time(juh <- foreach(1:20) %dopar% {library(rstan); library(gtools)
+    init <- list(gamma=-rep(baseline,K[i]) %>% array(dim = c(d,K[i])) + rnorm(K[i]*d,sd = 0.5),
+                 pi=MCMCpack::rdirichlet(1,rep(1,K[i])) %>% array(),
+                 cutdiff=cutdiff)
+    stanfit <- optimizing(ordmodel,standat,init=init,as_vector=F,verbose=T,tol_obj=0.1)
+    return(stanfit)
+  })
+  stanfitlist[[i]] <- juh[[which.max(sapply(juh,function(x) x$val))]]
+  stopCluster(cl)
 }
 
-K <- 3
-ordmodel <- stan_model("~/code/OrdRegMix/mordreg_topic.stan")
-standat <- list(N=nrow(eta),D=d,K=K,Y=Y,
-                eta=eta,L=rep(3,d))
-init <- list(gamma=-rep(baseline,K) %>% array(dim = c(d,K)) + rnorm(K*d,sd = 0.5),
-             pi=MCMCpack::rdirichlet(1,rep(1,K)) %>% as.vector(),
-             cutdiff=cutdiff)
-system.time(stanfit <- optimizing(ordmodel,standat,init=init,as_vector=F,verbose=T))
+#cross-validation
+cv <- matrix(nrow=nfold,ncol=length(K))
+for (j in 1:length(K)) {
+  cl <- readyparallel(4)
+  juh <- foreach(i=1:nfold) %dopar% {library(rstan); library(gtools)
+    standat <- list(N=sum(fold!=i),D=d,K=K[j],Y=Y[fold!=i,],eta=eta[fold!=i,],L=rep(3,d),
+                    N_out=sum(fold==i),Y_out=Y[fold==i,],eta_out=eta[fold==i,])
+    stanfit <- optimizing(ordmodel_cv,standat,init=stanfitlist[[j]]$par,as_vector=F,verbose=T,tol_obj=0.01)
+  }
+  cv[,j] <- sapply(juh,function(x) x$par$loglik_out)
+  stopCluster(cl)
+}
 
-
-standat$K <- K+1
-
-init <- list()
-init$gamma <- cbind(stanfit$par$gamma,baseline + rnorm(d,sd=0))
-init$pi <- c(stanfit$par$pi,1e-6)
-init$pi <- init$pi/sum(init$pi)
-init$cutdiff <- stanfit$par$cutdiff
-
-stanfit_kp1 <- optimizing(ordmodel,standat,init=init,as_vector=F,verbose=T)
-
-
-K <- 5
-ordmodel <- stan_model("~/code/OrdRegMix/mordreg_topic_dir.stan")
-standat <- list(N=nrow(eta),D=d,K=K,Y=Y,
-                eta=eta,L=rep(3,d),alpha=1)
-init <- list(gamma=-rep(baseline,K) %>% array(dim = c(d,K)) + rnorm(K*d,sd = 0.1),
-             pi=MCMCpack::rdirichlet(1,rep(1,K)) %>% as.vector(),
-             cutdiff=cutdiff)
-stanfit <- optimizing(ordmodel,standat,init=init,as_vector=F,verbose=T)
-
-init$gamma <- init$gamma[,1:9]
-init$pi <- init$pi[1:9]/sum(init$pi[1:9])
-standat$K <- 9
-
-sig <- 1/stanfit$par$cutdiff %>% as.vector()
-ranobsf <- sweep(ranobs,2,sig,"*")
-ranidf <- sweep(ranid,2,sig,"*")
-fixedf <- sweep(fixed,2,sig,"*")
-alphaf <- t(stanfit$par$gamma)*sig
-
-path <- "~/analysis/OrdRegMix/"
-write.matrix(sig,paste0(path,"sigma_0.csv"))
-write.matrix(ranid,paste0(path,"ranef1_0.csv"))
-write.matrix(ranobs,paste0(path,"ranef2_0.csv"))
-write.matrix(fixed,paste0(path,"fixef_0.csv"))
-write.matrix(stanfit$par$r,paste0(path,"r_0.csv"))
-write.matrix(stanfit$par$gamma,paste0(path,"alpha_0.csv"))
-
+#save for output
+path <- "~/analysis/OrdRegMix/071018fF/"
 write.matrix(Xf,paste0(path,"Xf.csv"))
 write.matrix(Xr1,paste0(path,"Xr1.csv"))
 write.matrix(Xr2,paste0(path,"Xr2.csv"))
 write.matrix(Y,paste0(path,"Y.csv"))
 write.matrix(used_obs[,length(`Observation`),by=FocalID]$V1,paste0(path,"docrng.csv"))
+#write.matrix(Xin,paste0(path,"Xin.csv"))
 
+for (i in 1:length(K)) {
+  stanfit <- stanfitlist[[i]]
+  sig <- 1/stanfit$par$cutdiff %>% as.vector()
+  ranobsf <- sweep(ranobs,2,sig,"*")
+  ranidf <- sweep(ranid,2,sig,"*")
+  fixedf <- sweep(fixed,2,sig,"*")
+  alphaf <- t(t(stanfit$par$gamma)*sig)
+  
+  suff <- paste0("_k",K[i],".csv")
+  write.matrix(sig,paste0(path,"sigma_0",suff))
+  write.matrix(ranidf,paste0(path,"ranef1_0",suff))
+  write.matrix(ranobsf,paste0(path,"ranef2_0",suff))
+  write.matrix(fixedf,paste0(path,"fixef_0",suff))
+  write.matrix(stanfit$par$r,paste0(path,"r_0",suff))
+  write.matrix(alphaf,paste0(path,"alpha_0",suff))
+}
