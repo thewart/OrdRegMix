@@ -7,7 +7,7 @@ basepath <- "~/Dropbox/focaldata_processed/"
 fpath <- paste0(basepath,c("F2013/Txtexports_all_processed.csv",
                            "HH2014/Txtexports_all_processed.csv",
                            "R2015/Txtexports_all_processed.csv"))
-foo <- readfocfiles(fpath,group = c("F","HH","R"))
+foo <- readfocfiles(fpath,group = c("F","HH","R"),minobs = 0)
 
 F_2016 <- as.data.table(F_2016)
 F_2016[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,X,X__1,X__2,sep="; ")]
@@ -17,11 +17,20 @@ F_2016 <- F_2016[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`,Duration,Behavior,`Behavior Modifier`,PartnerID)]
 F_2016$Group <- "F"
 
+F2014SDB <- fread(paste0(behpath,"Masterdatafile2014_ALL_GroupF_SDB.csv"))
+F2014SDB[,`Start Time`:=as.POSIXct(`Start Time`,format="%H:%M:%S")]
+F2014SDB[,`Stop Time`:=as.POSIXct(`Stop Time`,format="%H:%M:%S")]
+F2014SDB[,Year:=as.character(Year)]
+F2014SDB[,Year:="2014"]
+F2014SDB <- F2014SDB[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
+                    `Start Time`,`Stop Time`, Duration, Behavior,`Behavior Modifier`,PartnerID)]
+
 F_2014[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,x,x_1,x_2,sep="; ")]
 F_2014[,Year:=as.character(Year)]
 F_2014[,Year:="2014"]
 F_2014 <- F_2014[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`, Duration, Behavior,`Behavior Modifier`,PartnerID)]
+F_2014 <- rbind(F_2014,F2014SDB)
 F_2014$Group <- "F"
 
 V_2015 <- as.data.table(V_2015)
@@ -48,7 +57,14 @@ KK_2015 <- KK_2015[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`,Duration,Behavior,`Behavior Modifier`,PartnerID)]
 KK_2015$Group <- "KK"
 
-all_files <- list(F_2014, KK_2015, V_2015, V_2016, F_2016)
+F_2015[,behaviour.starttime:=strptime(behaviour.starttime,format="%H:%M:%S")]
+F_2015[,StopTime:=behaviour.starttime+Duration_Revised]
+F_2015 <- F_2015[,c("Event Name","Observation Name","Focal ID","Observer","Year",
+                    "behaviour.starttime","StopTime","Duration_Revised","Event Name","behaviour.modifers","PartnerID","Group")]
+F_2015[,Year:="2015"]
+setnames(F_2015,colnames(KK_2015))
+
+all_files <- list(F_2014, F_2015, KK_2015, V_2015, V_2016, F_2016)
 juh <- do.call(rbind,all_files)
 juh[,`Behavior Modifier`:=str_replace_all(`Behavior Modifier`,"NA;*","")]
 setnames(juh,c("EventName","Observation","FocalID","Observer","Year","StartTime",
@@ -99,9 +115,11 @@ all_obs[,SDB:= SelfGrm + Scratch]
 # loop quantile function for all behaviors
 blevels <- list()
 for (i in 6:ncol(all_obs)) {
-  all_obs[[i]] <- cut(all_obs[[i]],c(0,0.5,quantile(all_obs[[i]][all_obs[[i]]>0],c(0.5,1.0))+0.5) %>% unique(),include.lowest = T)
+  # all_obs[[i]] <- cut(all_obs[[i]],c(0,0.5,quantile(all_obs[[i]][all_obs[[i]]>0],c(0.5,1.0))+0.5) %>% unique(),include.lowest = T)
+  all_obs[[i]] <- cut(all_obs[[i]],c(0,quantile(all_obs[[i]],c(0.5,1.0))+0.5),include.lowest = T)  
   blevels[[i-5]] <- levels(all_obs[[i]])
-  all_obs[[i]] <- as.numeric(all_obs[[i]])
+  # all_obs[[i]] <- as.numeric(all_obs[[i]])
+  all_obs[[i]] <- as.numeric(all_obs[[i]]) - 1
 }
 
 #extract IDs
@@ -120,3 +138,4 @@ nc1 <- ncol(all_obs)
 all_obs <- merge(all_obs,id_dat,by=c("FocalID","Year"))
 nc2 <- ncol(all_obs)
 all_obs <- all_obs[,c(1:5,(nc2-2):nc2,6:nc1),with=F]
+

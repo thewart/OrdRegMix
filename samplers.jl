@@ -1,21 +1,21 @@
-function sample_β{T<:Real}(y,X,σ2_β::T,σ2)
+function sample_β{T<:Real}(y,X,σ2_β::T,σ2=1.0)
     p = size(X,2);
     Σ = Diagonal(fill(σ2_β,p));
     return sample_β(y,X,Σ,σ2);
 end
 
-function sample_β{T<:AbstractVector}(y,X,σ2_β::T,σ2)
+function sample_β{T<:AbstractVector}(y,X,σ2_β::T,σ2=1.0)
     Σ = Diagonal(inv.(σ2_β));
     return sample_β(y,X,Σ,σ2);
 end
 
-function sample_β{T<:AbstractMatrix}(y,X,Σ_β::T,σ2)
+function sample_β{T<:AbstractMatrix}(y,X,Σ_β::T,σ2=1.0)
     p = size(X,2);
     Lβ = inv(chol(X'X./σ2 + Hermitian(inv(Σ_β))));
     return Lβ*Lβ'*X'y./σ2 + Lβ*randn(p);
  end
 
-function sample_u!(u,σ2_u,y,Z,σ2)
+function sample_u!(u,σ2_u,y,Z,σ2=1.0)
     v = length(Z);
     if v>1
         for i in 1:v
@@ -63,9 +63,13 @@ function sample_α(y,X,fit,docrng,K)
     return α, fit
 end
 
-function sample_z(η,y,δ2,cp)
-    γ = [-Inf,0,cp,Inf];
-    return rand( Truncated( Normal(η,sqrt(δ2)), γ[y],γ[y+1]) );
+function sample_z(η,y::Bool)
+    if y
+        dist = Truncated(Normal(η),0.0,Inf);
+    else
+        dist = Truncated(Normal(η),-Inf,0.0)
+    end
+    return rand(dist);
 end
 
 function Ztu{T<:AbstractMatrix}(Z,u::Vector{T})

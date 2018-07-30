@@ -5,34 +5,31 @@ include("/home/seth/code/OrdRegMix/samplers.jl");
 @everywhere include("/home/seth/code/OrdRegMix/entropy.jl")
 
 #read in data
-path = "/home/seth/analysis/OrdRegMix/071018fF/";
+path = "/home/seth/analysis/OrdRegMix/072418mF/";
 v = sum(getindex.(readdir(path),[1:2]) .== "Xr");
 Xf = readcsv(string(path,"Xf.csv"));
 Xr = [readcsv(string(path,"Xr",i,".csv")) for i=1:v];
 Xr = [convert.(Bool,X) for X in Xr];
-Y = readcsv(string(path,"Y.csv"),Int64);
+Y = Bool.(readcsv(string(path,"Y.csv"),Int64));
 nd = readcsv(string(path,"docrng.csv"),Int64)[:];
 docrng = nd_to_docrng(nd);
 Xin = zeros(length(docrng),1);
 # Xin = readcsv(string(path,"Xin.csv"));
 
-fv = false;
-
 # nfolds = 4;
 # folds = foldup(docrng,nfolds);
 
 #read in initialization
-Kvec = collect(2:8);
+Kvec = collect(2:9);
 foof = Vector{Vector{HYBRIDsample}}(length(Kvec));
 lp = Vector{Matrix{Float64}}(length(Kvec));
 # cv = Matrix{Matrix{Float64}}(nfolds,length(Kvec));
 
-for i in 1:length(Kvec)
+for i in 7:length(Kvec)
     K = Kvec[i];
     suff = string("_k",K,".csv")
     init = HYBRIDsample();
     #init = init_params(size(Xf,2),size.(Xr,2),size(Y,2));
-    init.σ2 = vec(readcsv(string(path,"sigma_0",suff)).^2);
     init.u = [readcsv(string(path,"ranef",i,"_0",suff)) for i=1:v];
     #init.u = [uinit[i][:,d] for i=1:v,d=1:size(Y,2)];
     init.α = readcsv(string(path,"alpha_0",suff));
@@ -52,18 +49,10 @@ for i in 1:length(Kvec)
     iz = vec(rand.(mapslices(Categorical,resp,2)));
     initin.z = iz;
 
-    if fv
-        init.σ2[:] = 1.0;
-        cp = inv.(vec(readcsv(string(path,"sigma_0",suff))));
-    else
-        cp = ones(size(Y,2));
-    end
-
     hy = hyperparameter(ν0_τ=1.0,τ0_τ=1.0,τ_β=5.0);
     hy[:a] = 1.0;
     hy[:ν0] = 2.0;
     #hack observers
-    init.σ2_u[2] = diagm(diag(init.σ2_u[2]));
 
     # @time foof[i] = lmmtopic(Y,Xf,Xr,Xin,docrng,init=init,hy=hy,
     # initin=initin,K,iter=10,thin=1,cp=cp,fixedvar=fv);
@@ -72,8 +61,8 @@ for i in 1:length(Kvec)
     # @time H[i] = calc_cond_entropy_parallel_2(fit,cp,2);
 
     @time foof[i] = lmmtopic(Y,Xf,Xr,Xin,docrng,init=init,hy=hy,
-    initin=initin,K,iter=20000,thin=40,cp=cp,fixedvar=fv);
-    @time lp[i] = lppd(Y,Xf,Xr,docrng,cp,foof[i]);
+    initin=initin,K,iter=20000,thin=40);
+    @time lp[i] = lppd(Y,Xf,Xr,docrng,foof[i]);
 
     # for j in 1:nfolds
     #     trainfolds = setdiff(1:nfolds,j);
@@ -96,10 +85,10 @@ for i in 1:length(Kvec)
 
 end
 
-rng = 201:3:500;
+rng = 1:1:500;
 H = Matrix{Tuple{Float64,Float64,Float64}}(length(rng),length(Kvec));
 for i in 1:length(Kvec)
-    @time H[:,i] = pmap(calc_cond_entropy_2,foof[i][rng],fill(150,length(rng)));
+    @time H[:,i] = pmap(calc_cond_entropy,foof[i][rng],fill(200,length(rng)));
 end
 
 

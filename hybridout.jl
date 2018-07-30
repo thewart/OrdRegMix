@@ -2,8 +2,6 @@ mutable struct HYBRIDsample
     α::Matrix{Float64}
     β::Matrix{Float64}
     u::Vector{Matrix{Float64}}
-
-    σ2::Vector{Float64}
     σ2_u::Vector{Matrix{Float64}}
 
     tlmm::TLMMsample
@@ -14,7 +12,6 @@ end
 function init_params!(samp::HYBRIDsample,p::Int,l::Vector{Int},dim::Int)
     v = length(l);
     samp.β = randn(p,dim);
-    samp.σ2 = rand(dim);
     samp.u = [randn(i,dim) for i in l];
     samp.σ2_u = [samp.u[i]'samp.u[i]./l[i] for i in 1:v];
 
@@ -33,8 +30,7 @@ end
 
 function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter(),
     init=init_params(size(Xf,2),size.(Xr,2),size(y,2)),
-    initin=init_params(K,length(docrng),size(Xin,2)),
-    cp=fill(1,size(y,2)),iter=1000,thin=1,fixedvar=false)
+    initin=init_params(K,length(docrng),size(Xin,2)),iter=1000,thin=1,fixedvar=false)
 
     p = size(Xf,2);
     n,dim = size(y);
@@ -50,9 +46,9 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter()
         α_expand =  s.α[:,initin.z]';
         η = Matrix{Float64}(size(y));
         η = α_expand + Xf*s.β + Ztu(Xr,s.u);
-        z = [sample_z(η[i,d],y[i,d],s.σ2[d],cp[d]) for i=1:n, d=1:dim];
+        z = [sample_z(η[i,d],y[i,d]) for i=1:n, d=1:dim];
     else
-        z = [sample_z(0.0,y[i,d],s.σ2[d],cp[d]) for i=1:n, d=1:dim];
+        z = [sample_z(0.0,y[i,d]) for i=1:n, d=1:dim];
     end
 
     fit = TLMMfit([initin],
@@ -71,41 +67,26 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter()
     for t in 1:iter
 
         resid = z - Xf*s.β - Ztu(Xr,s.u);
-        for d in 1:dim
-            fit.prior[d].σ2 = s.σ2[d];
-        end
         s.α, fit = sample_α(resid',Xin',fit,docrng,K);
         α_expand =  s.α[:,fit.θ[1].z]';
 
         resid = z - (α_expand + Ztu(Xr,s.u));
         for d in 1:dim
-            s.β[:,d] = sample_β(resid[:,d],Xf,hy[:τ_β]*s.σ2[d],s.σ2[d]);
+            s.β[:,d] = sample_β(resid[:,d],Xf,hy[:τ_β],1.0);
         end
 
         α_Xβ = α_expand + Xf*s.β;
         resid = z - α_Xβ;
-        sample_u!(s.u,s.σ2_u,resid,Xr,s.σ2);
+        sample_u!(s.u,s.σ2_u,resid,Xr,1.0);
 
         for j in 1:v
-            s.σ2_u[j] = sample_Σ(s.u[j],#*Diagonal(inv.(sqrt.(s.σ2))),
-                        diag(s.σ2_u[j]),hy[:ν0],hy[:a]);
+            s.σ2_u[j] = sample_Σ(s.u[j],diag(s.σ2_u[j]),hy[:ν0],hy[:a]);
         end
 
         α_Xβ_Zu = α_Xβ + Ztu(Xr,s.u);
 
         for d in 1:dim
-            z[:,d] .= sample_z.(α_Xβ_Zu[:,d],y[:,d],s.σ2[d],cp[d]);
-        end
-
-        if !fixedvar
-            resid = z - α_Xβ_Zu;
-            bigmat = vcat(resid,
-                    (s.α'-μ0_α)*sqrt(ν0_α),
-                    s.β./sqrt(hy[:τ_β]));#,
-                    # vcat([s.u[i]*inv(chol(s.σ2_u[i]))' for i in 1:v]...));
-            for d in 1:dim
-                s.σ2[d] = sample_σ2(bigmat[:,d],hy[:ν0_τ],hy[:τ0_τ]);
-            end
+            z[:,d] .= sample_z.(α_Xβ_Zu[:,d],y[:,d]);
         end
 
         if t ∈ saveiter
@@ -127,16 +108,15 @@ end
 import Base.mean
 function mean(samps::Vector{HYBRIDsample})
     meanfit = HYBRIDsample();
+    v = length(samps[1].σ2_u);
 
     tmp = gf(samps,:α);
     meanfit.α = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
     tmp = gf(samps,:β);
     meanfit.β = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
-    tmp = gf(samps,:σ2);
-    meanfit.σ2 = squeeze(mean(tmp,ndims(tmp)),ndims(tmp));
-    tmp = [cat(3,[i.σ2_u[j] for i in samps]...) for j in 1:2];
+    tmp = [cat(3,[i.σ2_u[j] for i in samps]...) for j in 1:v];
     meanfit.σ2_u = [squeeze(mean(i,ndims(i)),ndims(i)) for i in tmp];
-    tmp = [cat(3,[i.u[j] for i in samps]...) for j in 1:2];
+    tmp = [cat(3,[i.u[j] for i in samps]...) for j in 1:v];
     meanfit.u = [squeeze(mean(i,ndims(i)),ndims(i)) for i in tmp];
 
     meanfit.tlmm = mean([i.tlmm for i in samps]);
@@ -145,31 +125,29 @@ function mean(samps::Vector{HYBRIDsample})
 end
 
 ##### prediction for new samples from old groups
-function probord_pdf(y::Int64,η::Float64,σ2,cp)
-    dist = Normal(η,sqrt(σ2));
-    return log(cdf(dist,cp[y+1]) - cdf(dist,cp[y]));
+function probord_pdf(y::Bool,η::Float64)
+    prob = normcdf(η);
+    return y*log(prob) + !y*log(1.0-prob);
 end
 
-function probordmix_pdf(y,η,α,σ2,π,cp);
+function probordmix_pdf(y,η,α,π);
     K = length(π);
     dim = length(η);
     lp = Vector{Float64}(length(π));
     for k ∈ 1:K
         lp[k] = log(π[k]);
         for d ∈ 1:dim
-            lp[k] += probord_pdf(y[d],η[d] + α[d,k],σ2[d],cp[:,d])
+            lp[k] += probord_pdf(y[d],η[d] + α[d,k]);
         end
     end
-    return logsumexp(lp)
+    return lp
 end
 
 import LogTopReg.lppd
-function lppd(y,Xf,Xr,docrng,cp,s::HYBRIDsample)
+function lppd(y,Xf,Xr,docrng,s::HYBRIDsample)
     n = length(docrng);
     lp = zeros(size(y,1));
-    dim = length(cp);
-    cpf = repeat([-Inf,0,1,Inf],outer=(1,dim));
-    cpf[3,:] = cp;
+    dim = size(y,2);
 
     η = Xf*s.β + Ztu(Xr,s.u);
 
@@ -182,20 +160,20 @@ function lppd(y,Xf,Xr,docrng,cp,s::HYBRIDsample)
         end
 
         for j ∈ irng
-            lp[j] += probordmix_pdf(y[j,:],η[j,:],s.α,s.σ2,π,cpf);
+            lp[j] += logsumexp(probordmix_pdf(y[j,:],η[j,:],s.α,π));
         end
     end
 
     return lp;
 end
 
-function lppd(y,Xf,Xr,docrng,cp,fit::Vector{HYBRIDsample})
+function lppd(y,Xf,Xr,docrng,fit::Vector{HYBRIDsample})
     iter = length(fit);
     # n = size(docrng);
     lp = Matrix{Float64}(size(y,1),iter);
 
     for i ∈ 1:iter
-        lp[:,i] = lppd(y,Xf,Xr,docrng,cp,fit[i]);
+        lp[:,i] = lppd(y,Xf,Xr,docrng,fit[i]);
     end
 
     return lp
