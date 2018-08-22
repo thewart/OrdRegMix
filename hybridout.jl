@@ -30,7 +30,7 @@ end
 
 function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter(),
     init=init_params(size(Xf,2),size.(Xr,2),size(y,2)),
-    initin=init_params(K,length(docrng),size(Xin,2)),iter=1000,thin=1,fixedvar=false)
+    initin=init_params(K,length(docrng),size(Xin,2)),iter=1000,thin=1)
 
     p = size(Xf,2);
     n,dim = size(y);
@@ -51,7 +51,7 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter()
         z = [sample_z(0.0,y[i,d]) for i=1:n, d=1:dim];
     end
 
-    fit = TLMMfit([initin],
+    fit = TLMMfit([deepcopy(initin)],
         Matrix{Vector{NormalMeanPosterior}}(0,0),
         [NormalMeanPosterior(μ0_α,ν0_α,1.0) for i=1:dim],
         hyin);
@@ -67,7 +67,7 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter()
     for t in 1:iter
 
         resid = z - Xf*s.β - Ztu(Xr,s.u);
-        s.α, fit = sample_α(resid',Xin',fit,docrng,K);
+        s.α, fit = sample_α(resid',Xin',s.α,fit,docrng,K);
         α_expand =  s.α[:,fit.θ[1].z]';
 
         resid = z - (α_expand + Ztu(Xr,s.u));

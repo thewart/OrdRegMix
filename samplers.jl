@@ -56,10 +56,13 @@ function sample_σ2(y,ν0,τ0);
   return rand(InverseGamma(a,b));
 end
 
-function sample_α(y,X,fit,docrng,K)
-    fit = topiclmm(y,X,docrng,fit.prior,K,init=fit.θ[1],hy=fit.hyperparameter,iter=1);
-    topic = fit.tss[:,:,1];
-    α = hcat(rand.(topicpd.(topic))...);
+function sample_α(y,X,α,fit,docrng,K)
+    topicparam = [Normal.(α[:,k]) for k in 1:K];
+    # fit, topicparam = topiclmm(y,X,docrng,fit.prior,topicparam,K,init=fit.θ[1],hy=fit.hyperparameter,iter=1);
+    fit, topicparam = topiclmm_uncollapsed(y,docrng,fit.prior,topicparam,K,init=fit.θ[1],hy=fit.hyperparameter,iter=1);
+    # topic = fit.tss[:,:,1];
+    # α = hcat(rand.(topicpd.(topic))...);
+    α = hcat([mean.(topicparam[k]) for k in 1:K]...);
     return α, fit
 end
 

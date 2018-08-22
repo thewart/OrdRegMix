@@ -1,4 +1,4 @@
-function calc_cond_entropy(fit::HYBRIDsample,n::Int=200)
+function calc_cond_entropy(fit::HYBRIDsample,n::Int=200,αmean::Bool=false)
     dim = size(fit.α,1);
     K = size(fit.α,2);
     L = chol(fit.σ2_u[1])';
@@ -9,11 +9,12 @@ function calc_cond_entropy(fit::HYBRIDsample,n::Int=200)
 
     pk = [sample_pk(fit.tlmm,K) for i in 1:n];
     αc = [fit.α .- fit.α*i for i in pk];
+    pμ = softmax(fit.tlmm.μ);
 
     for j in 1:n
         fill!(epy_pi,0.0);
         for i in 1:n
-            pyd = calc_pyd(αc[j],L*randn(dim)+fit.α*pk[j],K,dim);
+            pyd = calc_pyd(αc[j],L*randn(dim)+fit.α*pk[j]*!αmean+fit.α*pμ*αmean,K,dim);
             py = calc_py(pyd,pk[j]);
             cH += entropy(py);
             epy_pi .+= py;
@@ -33,6 +34,46 @@ function calc_cond_entropy(fit::HYBRIDsample,n::Int=200)
 
     return H, cH, cH_pi
 end
+
+function calc_cond_entropy_2(fit::HYBRIDsample,n::Int)
+    dim = size(fit.α,1);
+    K = size(fit.α,2);
+    L = chol(fit.σ2_u[1])';
+    cH_col = 0.0;
+    cH = 0.0;
+    epy_row = fill(0.0,2^dim,n);
+    epy_col = fill(0.0,2^dim);
+    epy = fill(0.0,2^dim);
+
+    pk = [sample_pk(fit.tlmm,K) for i in 1:n];
+    αc = [fit.α .- fit.α*i for i in pk];
+    u = [L*randn(dim) for i in 1:n];
+
+    for j in 1:n
+        fill!(epy_col,0.0);
+        for i in 1:n
+            pyd = calc_pyd(αc[j],u[i]+fit.α*pk[j],K,dim);
+            py = calc_py(pyd,pk[j]);
+            cH += entropy(py);
+            epy_col .+= py;
+            epy_row[:,i] .+= py;
+        end
+        epy .+= epy_col;
+        cH_col += entropy(epy_col./n);
+    end
+
+    cH_col *= 1/n;
+    cH *=1/n^2;
+
+    epy_row .*= 1/n;
+    cH_row = mean(mapslices(entropy,epy_row,1));
+
+    epy .*= 1/(n^2);
+    H = entropy(epy);
+
+    return H, cH, cH_row, cH_col
+end
+
 
 function calc_py(pyd,pk)
     K,dim = size(pyd,1,3);
@@ -55,8 +96,13 @@ end
 
 function sample_pk(tlmm,K)
     ηk = Vector{Float64}(K);
+    #estimate effective variance
+    η = tlmm.η .- tlmm.η[1:1,:];
+    σ2 = mapslices(var,η,2);
+    μ = mapslices(mean,η,2);
     #sample from p(π)
-    for i=1:K ηk[i] = tlmm.μ[i] + sqrt(tlmm.σ2_η[i])*randn(); end
+    #for i=1:K ηk[i] = tlmm.μ[i] + sqrt(tlmm.σ2_η[i])*randn(); end
+    for i=1:K ηk[i] = μ[i] + sqrt(σ2[i])*randn(); end
     return softmax(ηk)
 end
 

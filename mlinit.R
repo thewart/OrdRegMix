@@ -1,5 +1,4 @@
 #source("~/code/brianzhong/Plattlab/master.R")
-library(ordinal)
 library(rstan)
 library(standardize)
 library(lme4)
@@ -11,7 +10,7 @@ d <- length(behaviors)
 #leftside <- "factor(Year) + Group + SEX + poly(Age,2) + ORD_RANK + (1|FocalID) + (1|Observer)"
 leftside <- "factor(Year) + poly(Age,2) + ORD_RANK + (1|FocalID)"
 #used_obs <- all_obs[Year>2011]
-used_obs <- all_obs[Group=="F" & SEX=="m"]
+used_obs <- all_obs[Group=="F" & SEX=="f"]
 
 Xdf <- unique(used_obs[,.(Group=names(which.max(table(Group))),SEX,Y=mean(SDB)),by=FocalID])
 std <- standardize(Y~Group + SEX,Xdf)
@@ -90,12 +89,17 @@ for (j in 1:length(K)) {
 }
 
 #save for output
-path <- "~/analysis/OrdRegMix/072418mF/"
+path <- "~/analysis/OrdRegMix/071818fF/"
 write.matrix(Xf,paste0(path,"Xf.csv"))
 write.matrix(Xr1,paste0(path,"Xr1.csv"))
 write.matrix(Y,paste0(path,"Y.csv"))
 write.matrix(used_obs[,length(`Observation`),by=FocalID]$V1,paste0(path,"docrng.csv"))
 #write.matrix(Xin,paste0(path,"Xin.csv"))
+
+suff <- "_k1.csv"
+write.matrix(baseline,paste0(path,"alpha_0",suff))
+write.matrix(ranid,paste0(path,"ranef1_0",suff))
+write.matrix(fixed,paste0(path,"fixef_0",suff))
 
 for (i in 1:length(K)) {
   stanfit <- stanfitlist[[i]]
