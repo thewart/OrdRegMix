@@ -28,6 +28,8 @@ F2014SDB <- F2014SDB[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year
 F_2014[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,x,x_1,x_2,sep="; ")]
 F_2014[,Year:=as.character(Year)]
 F_2014[,Year:="2014"]
+F_2014[,`Start Time`:=as.POSIXct(`Start Time`,format="%H:%M:%S")]
+F_2014[,`Stop Time`:=as.POSIXct(`Stop Time`,format="%H:%M:%S")]
 F_2014 <- F_2014[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`, Duration, Behavior,`Behavior Modifier`,PartnerID)]
 F_2014 <- rbind(F_2014,F2014SDB)
@@ -61,7 +63,7 @@ F_2015[,behaviour.starttime:=strptime(behaviour.starttime,format="%H:%M:%S")]
 F_2015[,StopTime:=behaviour.starttime+Duration_Revised]
 F_2015 <- F_2015[,c("Event Name","Observation Name","Focal ID","Observer","Year",
                     "behaviour.starttime","StopTime","Duration_Revised","Event Name","behaviour.modifers","PartnerID","Group")]
-F_2015[,Year:="2015"]
+F_2015[,Year:=rep("2015",nrow(F_2015))]
 setnames(F_2015,colnames(KK_2015))
 
 all_files <- list(F_2014, F_2015, KK_2015, V_2015, V_2016, F_2016)
