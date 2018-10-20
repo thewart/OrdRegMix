@@ -1,13 +1,16 @@
 library(readxl)
 
-mainpath <- "~/code/brianzhong/Plattlab/"
-source(paste0(mainpath,"ReadXL.R"), echo=TRUE)
 source("~/code/LatentSocialPheno/parsefocaldata.R")
 basepath <- "~/Dropbox/focaldata_processed/"
 fpath <- paste0(basepath,c("F2013/Txtexports_all_processed.csv",
                            "HH2014/Txtexports_all_processed.csv",
                            "R2015/Txtexports_all_processed.csv"))
 foo <- readfocfiles(fpath,group = c("F","HH","R"),minobs = 0)
+#manually fix ambiguous parnter IDs
+foo[PartnerID=="4B2;40V",PartnerID:="4B2"]
+foo[PartnerID=="80T;8B0",PartnerID:="8B0"]
+foo[PartnerID=="30L;3A2",PartnerID:="30L"]
+foo[PartnerID=="01K;0K1",PartnerID:="01K"]
 
 F_2016 <- as.data.table(F_2016)
 F_2016[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,X,X__1,X__2,sep="; ")]
@@ -32,6 +35,7 @@ F_2014 <- F_2014[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`, Duration, Behavior,`Behavior Modifier`,PartnerID)]
 F_2014 <- rbind(F_2014,F2014SDB)
 F_2014$Group <- "F"
+F_2014[PartnerID %in% c("0A10","0A11","0A12","0A13"),PartnerID:="0A9"]
 
 V_2015 <- as.data.table(V_2015)
 V_2015[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,X,X__1,X__2,sep="; ")]
