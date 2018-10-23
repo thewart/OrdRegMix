@@ -37,6 +37,8 @@ F_2014[,`Stop Time`:=as.POSIXct(`Stop Time`,format="%H:%M:%S")]
 F_2014[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,x,x_1,x_2,sep="; ")]
 F_2014[,Year:=as.character(Year)]
 F_2014[,Year:="2014"]
+F_2014[,`Start Time`:=as.POSIXct(`Start Time`,format="%H:%M:%S")]
+F_2014[,`Stop Time`:=as.POSIXct(`Stop Time`,format="%H:%M:%S")]
 F_2014 <- F_2014[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`, Duration, Behavior,`Behavior Modifier`,PartnerID)]
 F_2014 <- rbind(F_2014,F2014SDB)
@@ -77,7 +79,7 @@ F_2015[,behaviour.starttime:=strptime(behaviour.starttime,format="%H:%M:%S")]
 setnames(F_2015,old = c("focal.id","behaviour","constrained.duration","partner.id","observation.name","year"),
          new=c("Focal ID","Event Name","Duration_Revised","PartnerID","Observation Name","Year"))
 F_2015[,StopTime:=behaviour.starttime+Duration_Revised]
-F_2015[,Year:="2015"]
+F_2015[,Year:=rep("2015",nrow(F_2015))]
 F_2015[,Group:="F"]
 F_2015 <- F_2015[,c("Event Name","Observation Name","Focal ID","Observer","Year",
                     "behaviour.starttime","StopTime","Duration_Revised","Event Name","behaviour.modifers","PartnerID","Group")]
