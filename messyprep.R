@@ -116,6 +116,12 @@ bdat <- bdat[!(str_detect(Behavior,"revised") | str_detect(Behavior,"overtime"))
 bdat[,FocalID:=toupper(FocalID)]
 bdat[,PartnerID:=toupper(PartnerID)]
 
+#get rid of animals w/ suspiciously few observations
+obscount <- bdat[,length(unique(Observation)),by=c("FocalID","Year","Group")]
+obskeep <- obscount[,.(FocalID,V1,V1>(mean(V1)-2*sd(V1))),by=c("Year","Group")][V3==T]
+bdat <- bdat[bdat[,paste0(FocalID,Year,Group)] %in% obskeep[,paste0(FocalID,Year,Group)]]
+
+
 # extract and count relevant behaviors ----
 
 ptetho <- defaultpoint2()[type!="misc" & !(behavior%in%c("Vigilnce","PsCnTerm","GrmTerm","GrmPrsnt"))]
@@ -124,10 +130,6 @@ bdat[,Behavior:=eventsplit(Behavior,BehaviorModifier,ptetho)]
 all_obs <- countprep(ptetho$behavior,bdat) %>% 
   merge(x=unique(bdat[,c("Observation","FocalID","Observer","Year","Group")]),by="Observation")
 setkey(all_obs,"FocalID","Year","Observer")
-
-obscount <- all_obs[,length(Observation),by=c("FocalID","Year","Group")]
-obskeep <- obscount[,.(FocalID,V1,V1>(mean(V1)-2*sd(V1))),by=c("Year","Group")][V3==T]
-all_obs <- all_obs[all_obs[,paste0(FocalID,Year,Group)] %in% obskeep[,paste0(FocalID,Year,Group)]]
 
 all_obs[,NonConAgg_give:=`threat:direct'n(give)` + `noncontactAgg:direct'n(give)`]
 all_obs[,NonConAgg_rec:=`threat:direct'n(receive)` + `noncontactAgg:direct'n(receive)`]
@@ -152,12 +154,13 @@ for (i in 6:ncol(all_obs)) {
 id_dat <- unique(all_obs[,.(FocalID,Year)])
 
 # merge and calculate age data
+dominance <- read_excel("~/Dropbox/Subjects_attributes, dominance, etc/Dominance Hierarchies/DOMINANCE_ALLSUBJECTS_LONGLIST.xlsx", sheet = "DOMINANCE_ALLSUBJECTS") %>% as.data.table()
 dominance$YEAR <- as.character(dominance$YEAR)
+dominance[,ORD_RANK:=ordered(ORD_RANK,levels=c("L","M","H"))]
 id_dat <-  merge(id_dat,pedigree[,c(1, 2, 11)], by.x = "FocalID",by.y = "Focal_ID")
 id_dat[,Age:=as.numeric(Year) - CS.BIRTH.SEASON]
 id_dat[,CS.BIRTH.SEASON:=NULL]
 id_dat <- merge(id_dat,dominance[,c("ID","YEAR","ORD_RANK")],by.x=c("FocalID","Year"),by.y=c("ID","YEAR"))
-id_dat[,ORD_RANK:=ordered(ORD_RANK,levels=c("L","M","H"))]
 
 nc1 <- ncol(all_obs)
 # remove animals w/ no dominance rank
