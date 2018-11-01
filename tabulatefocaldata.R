@@ -15,9 +15,18 @@ dominance <- read_excel("~/Dropbox/Subjects_attributes, dominance, etc/Dominance
 dominance$YEAR <- as.character(dominance$YEAR)
 dominance[,ORD_RANK:=ordered(ORD_RANK,levels=c("L","M","H"))]
 
-# extract and count relevant behaviors ----
-ptetho <- defaultpoint2()[type!="misc" & !(behavior%in%c("Vigilnce","PsCnTerm","GrmTerm","GrmPrsnt"))]
-ptetho <- rbind(ptetho,list(c("GroomGIVE","GroomGET"),rep(NA,2),rep("Affiliative",2)))
+#remove animals with no rank info
+bdat <- bdat[paste0(FocalID,Year) %in% dominance[,paste0(ID,YEAR)]]
+
+#specify behaviors and their modifiers ----
+behavior <- c("Scratch","SelfGrm","GroomGIVE","GroomGET","passcont","threat","noncontactAgg","contactAgg","Approach")
+modifier <- c(NA,NA,"","","",rep("direct'n\\(\\w+\\)",3),"initiate\\(\\w+\\)")
+sb <- !is.na(modifier)
+if (modonrank) modifier[sb] <- paste(modifier[sb],"partnerrank\\(\\w+\\)",sep=";")
+if (modonsex) modifier[sb] <- paste(modifier[sb],"samesex\\(\\w+\\)",sep=";")
+if (modonkin) modifier[sb] <- paste(modifier[sb],"iskin\\(\\w+\\)",sep=";")
+
+# extract and count specified behaviors ----
 bdat[,Behavior:=eventsplit(Behavior,BehaviorModifier,ptetho)]
 all_obs <- countprep(ptetho$behavior,bdat) %>% 
   merge(x=unique(bdat[,c("Observation","FocalID","Observer","Year","Group")]),by="Observation")

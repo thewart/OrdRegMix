@@ -2,7 +2,7 @@
 library(rstan)
 library(standardize)
 library(lme4)
-source("~/code/OrdRegMix/messyprep.R")
+source("~/code/OrdRegMix/collectcleanfocaldata.R")
 
 behaviors = c("SDB","GroomGIVE", "GroomGET","passcont","Approach:initiate(focal)", "Approach:initiate(partner)",
               "NonConAgg_give","NonConAgg_rec","contactAgg:direct'n(give)","contactAgg:direct'n(receive)")
