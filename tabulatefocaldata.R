@@ -25,6 +25,13 @@ sb <- !is.na(modifier)
 if (modonrank) modifier[sb] <- paste(modifier[sb],"partnerrank\\(\\w+\\)",sep=";")
 if (modonsex) modifier[sb] <- paste(modifier[sb],"samesex\\(\\w+\\)",sep=";")
 if (modonkin) modifier[sb] <- paste(modifier[sb],"iskin\\(\\w+\\)",sep=";")
+modifier <- str_remove(modifier,"^;")
+ptetho <- data.table(behavior,modifier)
+
+addmodifier(bdat,iskin,kinmat=A)
+addmodifier(bdat,samesex,demo=pedigree)
+addmodifier(bdat,partnerrank,rank=dominance)
+
 
 # extract and count specified behaviors ----
 bdat[,Behavior:=eventsplit(Behavior,BehaviorModifier,ptetho)]
