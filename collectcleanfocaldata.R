@@ -1,5 +1,6 @@
 library(readxl)
 source("~/code/LatentSocialPheno/parsefocaldata.R")
+source("~/code/LatentSocialPheno/relationscript.R")
 basepath <- "~/Dropbox/focaldata_processed/"
 behpath <- "~/Dropbox/Behavioural Data for Seth/"
 
