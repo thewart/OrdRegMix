@@ -1,7 +1,13 @@
 library(rstan)
 library(standardize)
 library(lme4)
+modonsex <- T
+modonkin <- T
+modonrank <- F
 source("~/code/OrdRegMix/collectcleanfocaldata.R")
+source("~/code/OrdRegMix/loadcovariates.R")
+source("~/code/OrdRegMix/tabulatefocaldata.R")
+source("~/code/OrdRegMix/preparemodel.R")
 
 # behaviors = c("SDB","GroomGIVE", "GroomGET","passcont","Approach:initiate(focal)", "Approach:initiate(partner)",
 #               "NonConAgg_give","NonConAgg_rec","contactAgg:direct'n(give)","contactAgg:direct'n(receive)")
@@ -43,12 +49,12 @@ for (i in 1:d) {
 
 probmodel <- stan_model("~/code/OrdRegMix/probreg_topic.stan")
 
-K <- 2:9
-iter <- 50
+K <- 2:6
+iter <- 100
 stanfitlist <- list()
 ll <- matrix(nrow=iter,ncol=length(K))
 for (i in 1:length(K)) { 
-  cl <- readyparallel(4)
+  cl <- readyparallel(5)
   cat(paste0(i,"\n"))
   standat <- list(N=nrow(eta),D=d,K=K[i],Y=Y,eta=eta)
   system.time(juh <- foreach(1:iter) %dopar% {library(rstan); library(gtools)
@@ -64,11 +70,11 @@ for (i in 1:length(K)) {
 }
 
 #save for output
-path <- "~/analysis/OrdRegMix/071818fF/"
+path <- "~/analysis/OrdRegMix/111418fF_kin/"
 write.matrix(Xf,paste0(path,"Xf.csv"))
-write.matrix(Xr,paste0(path,"Xr.csv"))
+write.matrix(Xr,paste0(path,"Xr1.csv"))
 write.matrix(Y,paste0(path,"Y.csv"))
-write.matrix(n,paste0(path,"docrng.csv"))
+write.matrix(combodat[,length(`Observation`),by=FocalID]$V1,paste0(path,"docrng.csv"))
 #write.matrix(Xin,paste0(path,"Xin.csv"))
 
 suff <- "_k1.csv"

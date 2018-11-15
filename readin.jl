@@ -1,12 +1,14 @@
-@everywhere using DataFrames, Distributions, LogTopReg, StatsBase,
+using DataFrames, Distributions, StatsBase,
  StatsFuns, Distributions
-import LogTopReg.init_params, LogTopReg.init_params!
-@everywhere include("/home/seth/code/OrdRegMix/hybridout.jl");
+include("/home/seth/code/LogisticTopicRegression/LogTopReg.jl");
+using .LogTopReg
+import .LogTopReg.init_params, .LogTopReg.init_params!
+include("/home/seth/code/OrdRegMix/hybridout.jl");
 include("/home/seth/code/OrdRegMix/samplers.jl");
-@everywhere include("/home/seth/code/OrdRegMix/entropy.jl")
+include("/home/seth/code/OrdRegMix/entropy.jl");
 
 #read in data
-path = "/home/seth/analysis/OrdRegMix/071818fF/";
+path = "/home/seth/analysis/OrdRegMix/111418fF_kin/";
 v = sum(getindex.(readdir(path),[1:2]) .== "Xr");
 Xf = readcsv(string(path,"Xf.csv"));
 Xr = [readcsv(string(path,"Xr",i,".csv")) for i=1:v];
@@ -21,7 +23,7 @@ Xin = zeros(length(docrng),1);
 # folds = foldup(docrng,nfolds);
 
 #read in initialization
-Kvec = collect(1:2:7);
+Kvec = collect(2);
 foof = Vector{Vector{HYBRIDsample}}(length(Kvec));
 lp = Vector{Matrix{Float64}}(length(Kvec));
 foofu = Vector{Vector{HYBRIDsample}}(length(Kvec));
@@ -65,8 +67,8 @@ for i in 1:length(Kvec)
     hy[:a] = 1.0;
     hy[:ν0] = 2.0;
 
-    iter = 6000;
-    thin = 20;
+    iter = 100;
+    thin = 1;
 
     hyin = hyperparameter(σ0_σ2η=0.1,ν0_σ2η=1.0);
     @time foof[i] = lmmtopic(Y,Xf,Xr,Xin,docrng,K,init=init,hy=hy,
@@ -83,26 +85,6 @@ for i in 1:length(Kvec)
     @time foof0[i] = lmmtopic(Y,Xf,Xr,Xin,docrng,K,init=init,hy=hy,hyin=hyin,
         initin=initin,iter=iter,thin=thin);
     @time lp0[i] = lppd(Y,Xf,Xr,docrng,foof0[i]);
-
-    # for j in 1:nfolds
-    #     trainfolds = setdiff(1:nfolds,j);
-    #     train = [[g ∈ trainfolds for g in f] for f in folds];
-    #     test = [f .== j for f in folds];
-    #     trainrng =  nd_to_docrng([countnz(m) for m in train]);
-    #     testrng = nd_to_docrng([countnz(m) for m in test]);
-    #
-    #     train = vcat(train...);
-    #     test = vcat(test...);
-    #
-    #     Xr_train = [X[train,:] for X in Xr];
-    #     Xr_test = [X[test,:] for X in Xr];
-    #     initin.z = iz[train];
-    #
-    #     @time fit = lmmtopic(Y[train,:],Xf[train,:],Xr_train,Xin,trainrng,init=init,hy=hy,
-    #         initin=initin,K,iter=5000,thin=5,cp=cp,fixedvar=fv);
-    #     cv[j,i] = lppd(Y[test,:],Xf[test,:],Xr_test,testrng,cp,fit);
-    # end
-
 end
 
 rng = 1:2:500;

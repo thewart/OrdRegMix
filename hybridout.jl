@@ -99,13 +99,13 @@ function lmmtopic(y,Xf,Xr,Xin,docrng,K;hy=hyperparameter(),hyin=hyperparameter()
     return samples
 end
 
-import LogTopReg.gf
+import .LogTopReg.gf
 function gf(value::Vector{HYBRIDsample},name::Symbol)
     nd = ndims(getfield(value[1],name));
     return cat(nd+1,getfield.(value,name)...)
 end
 
-import Base.mean
+import Statistics.mean
 function mean(samps::Vector{HYBRIDsample})
     meanfit = HYBRIDsample();
     v = length(samps[1].σ2_u);
@@ -143,7 +143,7 @@ function probordmix_pdf(y,η,α,π);
     return lp
 end
 
-import LogTopReg.lppd
+import .LogTopReg.lppd
 function lppd(y,Xf,Xr,docrng,s::HYBRIDsample)
     n = length(docrng);
     lp = zeros(size(y,1));
