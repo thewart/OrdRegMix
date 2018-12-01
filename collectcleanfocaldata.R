@@ -8,7 +8,8 @@ behpath <- "~/Dropbox/Behavioural Data for Seth/"
 fpath <- paste0(basepath,c("F2013/Txtexports_all_processed.csv",
                            "HH2014/Txtexports_all_processed.csv",
                            "R2015/Txtexports_all_processed.csv"))
-foo <- readfocfiles(fpath,group = c("F","HH","R"),minobs = 0)
+foo <- readfocfiles(fpath,group = c("F","HH","R"),minobs=0,maxsec=630)
+
 #manually fix ambiguous parnter IDs
 foo[PartnerID=="4B2;40V",PartnerID:="4B2"]
 foo[PartnerID=="80T;8B0",PartnerID:="8B0"]

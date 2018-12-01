@@ -1,28 +1,15 @@
 library(rstan)
 library(standardize)
 library(lme4)
-modonsex <- T
-modonkin <- T
+modonsex <- F
+modonkin <- F
 modonrank <- F
 source("~/code/OrdRegMix/collectcleanfocaldata.R")
 source("~/code/OrdRegMix/loadcovariates.R")
 source("~/code/OrdRegMix/tabulatefocaldata.R")
 source("~/code/OrdRegMix/preparemodel.R")
 
-# behaviors = c("SDB","GroomGIVE", "GroomGET","passcont","Approach:initiate(focal)", "Approach:initiate(partner)",
-#               "NonConAgg_give","NonConAgg_rec","contactAgg:direct'n(give)","contactAgg:direct'n(receive)")
-# d <- length(behaviors)
-# #leftside <- "factor(Year) + Group + SEX + poly(Age,2) + ORD_RANK + (1|FocalID) + (1|Observer)"
-# leftside <- "factor(Year) + poly(Age,2) + ORD_RANK + (1|FocalID)"
-# #used_obs <- all_obs[Year>2011]
-# used_obs <- all_obs[Group=="F" & SEX=="f"]
-# 
-# Xdf <- unique(used_obs[,.(Group=names(which.max(table(Group))),SEX,Y=mean(SDB)),by=FocalID])
-# std <- standardize(Y~Group + SEX,Xdf)
-# Xin <- model.matrix(lm(std$formula,std$data))[,-1]
-#get design matrix
-
-combodat <- merge(used_obs,cov_dat,by=c("FocalID","Year"))
+combodat <- merge(used_obs,cov_dat,by=c("FocalID","Year","Group"))
 std <- standardize(as.formula(paste0(behaviors[1]," ~ ",leftside,"+",leftside_ranef)),family = binomial,combodat)
 Xf <- model.matrix(lmer(formula=std$formula,data=std$data))[,-1]
 Xr <- model.matrix(~ 0 + FocalID,data=combodat)
@@ -49,14 +36,14 @@ for (i in 1:d) {
 
 probmodel <- stan_model("~/code/OrdRegMix/probreg_topic.stan")
 
-K <- 2:6
+K <- 2:8
 iter <- 100
 stanfitlist <- list()
 ll <- matrix(nrow=iter,ncol=length(K))
 for (i in 1:length(K)) { 
   cl <- readyparallel(5)
   cat(paste0(i,"\n"))
-  standat <- list(N=nrow(eta),D=d,K=K[i],Y=Y,eta=eta)
+  standat <- list(N=nrow(eta),D=d,K=K[i],Y=combodat[,behaviors,with=F],eta=eta)
   system.time(juh <- foreach(1:iter) %dopar% {library(rstan); library(gtools)
     init <- list(gamma=rep(baseline,K[i]) %>% array(dim = c(d,K[i])) +
     rnorm(K[i]*d,sd = 1), pi=MCMCpack::rdirichlet(1,rep(1,K[i])) %>% array())

@@ -105,7 +105,7 @@ function gf(value::Vector{HYBRIDsample},name::Symbol)
     return cat(nd+1,getfield.(value,name)...)
 end
 
-import Statistics.mean
+import Base.mean
 function mean(samps::Vector{HYBRIDsample})
     meanfit = HYBRIDsample();
     v = length(samps[1].σ2_u);
@@ -188,4 +188,19 @@ function foldup(docrng,k)
     folds = splitfolds.(length.(docrng),k);
     #foldrng = mapslices(nd_to_docrng,[countnz(folds[i].==j) for i=1:length(docrng), j=1:k],1);
     return folds
+end
+
+function calc_py(s::HYBRIDsample)
+    dim,K = size(s.α);
+    u = s.u[1]';
+    n = size(u,2);
+    py = Array{Float64,2}(2^dim,n);
+    pk = mapslices(softmax,s.tlmm.η,1);
+
+    for i ∈ 1:n
+        pyd = calc_pyd(s.α,u[:,i],K,dim);
+        py[:,i] = calc_py(pyd,pk[:,i]);
+    end
+
+    return py
 end

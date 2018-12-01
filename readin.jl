@@ -1,8 +1,7 @@
-using DataFrames, Distributions, StatsBase,
- StatsFuns, Distributions
+using DataFrames, Distributions, StatsBase, StatsFuns
 include("/home/seth/code/LogisticTopicRegression/LogTopReg.jl");
-using .LogTopReg
-import .LogTopReg.init_params, .LogTopReg.init_params!
+using LogTopReg
+import LogTopReg.init_params, .LogTopReg.init_params!
 include("/home/seth/code/OrdRegMix/hybridout.jl");
 include("/home/seth/code/OrdRegMix/samplers.jl");
 include("/home/seth/code/OrdRegMix/entropy.jl");
@@ -23,7 +22,7 @@ Xin = zeros(length(docrng),1);
 # folds = foldup(docrng,nfolds);
 
 #read in initialization
-Kvec = collect(2);
+Kvec = collect(1:2:6);
 foof = Vector{Vector{HYBRIDsample}}(length(Kvec));
 lp = Vector{Matrix{Float64}}(length(Kvec));
 foofu = Vector{Vector{HYBRIDsample}}(length(Kvec));
@@ -67,8 +66,8 @@ for i in 1:length(Kvec)
     hy[:a] = 1.0;
     hy[:ν0] = 2.0;
 
-    iter = 100;
-    thin = 1;
+    iter = 10000;
+    thin = 10;
 
     hyin = hyperparameter(σ0_σ2η=0.1,ν0_σ2η=1.0);
     @time foof[i] = lmmtopic(Y,Xf,Xr,Xin,docrng,K,init=init,hy=hy,
