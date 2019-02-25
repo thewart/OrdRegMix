@@ -1,16 +1,17 @@
 library(rstan)
 library(standardize)
 library(lme4)
-modonsex <- F
+modonsex <- T
 modonkin <- F
-modonrank <- F
+modonrank <- T
 source("~/code/OrdRegMix/collectcleanfocaldata.R")
 source("~/code/OrdRegMix/loadcovariates.R")
 source("~/code/OrdRegMix/tabulatefocaldata.R")
 source("~/code/OrdRegMix/preparemodel.R")
 
 combodat <- merge(used_obs,cov_dat,by=c("FocalID","Year","Group"))
-std <- standardize(as.formula(paste0(behaviors[1]," ~ ",leftside,"+",leftside_ranef)),family = binomial,combodat)
+std <- as.formula(paste0(behaviors[1]," ~ ",leftside,"+",leftside_ranef)) %>% 
+  standardize(family = binomial,combodat)
 Xf <- model.matrix(lmer(formula=std$formula,data=std$data))[,-1]
 Xr <- model.matrix(~ 0 + FocalID,data=combodat)
 
@@ -36,19 +37,20 @@ for (i in 1:d) {
 
 probmodel <- stan_model("~/code/OrdRegMix/probreg_topic.stan")
 
-K <- 2:8
+K <- c(2,4,6,8,10)
 iter <- 100
+cores <- 5
 stanfitlist <- list()
 ll <- matrix(nrow=iter,ncol=length(K))
 for (i in 1:length(K)) { 
-  cl <- readyparallel(5)
+  cl <- readyparallel(cores)
   cat(paste0(i,"\n"))
   standat <- list(N=nrow(eta),D=d,K=K[i],Y=combodat[,behaviors,with=F],eta=eta)
   system.time(juh <- foreach(1:iter) %dopar% {library(rstan); library(gtools)
     init <- list(gamma=rep(baseline,K[i]) %>% array(dim = c(d,K[i])) +
     rnorm(K[i]*d,sd = 1), pi=MCMCpack::rdirichlet(1,rep(1,K[i])) %>% array())
     #              cutdiff=cutdiff)
-    stanfit <- optimizing(probmodel,standat,init=init,as_vector=F,verbose=T,tol_obj=0.01)
+    stanfit <- optimizing(probmodel,standat,init=init,as_vector=F,verbose=T,tol_obj=0.005)
     return(stanfit)
   })
   ll[,i] <- sapply(juh,function(x) x$val)
@@ -57,7 +59,8 @@ for (i in 1:length(K)) {
 }
 
 #save for output
-path <- "~/analysis/OrdRegMix/111418fF_kin/"
+path <- "~/analysis/OrdRegMix/022119fF/"
+if (!dir.exists(path)) dir.create(path)
 write.matrix(Xf,paste0(path,"Xf.csv"))
 write.matrix(Xr,paste0(path,"Xr1.csv"))
 write.matrix(Y,paste0(path,"Y.csv"))
@@ -72,7 +75,7 @@ write.matrix(fixed,paste0(path,"fixef_0",suff))
 for (i in 1:length(K)) {
   stanfit <- stanfitlist[[i]]
   # sig <- 1/stanfit$par$cutdiff %>% as.vector()
-  sig <- rep(1,ncol(Y))
+  sig <- rep(1,d)
   ranidf <- sweep(ranid,2,sig,"*")
   fixedf <- sweep(fixed,2,sig,"*")
   alphaf <- t(t(stanfit$par$gamma)*sig)

@@ -35,25 +35,20 @@ function calc_cond_entropy(fit::HYBRIDsample,n::Int=200,αmean::Bool=false)
     return H, cH, cH_pi
 end
 
-function calc_cond_entropy_2(fit::HYBRIDsample,n::Int)
+function calc_cond_entropy_2(fit::HYBRIDsample)
     dim = size(fit.α,1);
     K = size(fit.α,2);
-    L = chol(fit.σ2_u[1])';
-    cH_col = 0.0;
-    cH = 0.0;
-    epy_row = fill(0.0,2^dim,n);
-    epy_col = fill(0.0,2^dim);
-    epy = fill(0.0,2^dim);
+    n = size(fit.u[1],1);
 
-    pk = [sample_pk(fit.tlmm,K) for i in 1:n];
-    αc = [fit.α .- fit.α*i for i in pk];
-    u = [L*randn(dim) for i in 1:n];
+    #pk = [sample_pk(fit.tlmm,K) for i in 1:n];
+    pi = mapslices(softmax,fit.tlmm.η,1);
+    αbar = fit.α * mean(pi,2);
+    α = fit.α * (pi .- mean(pi,2));
+    u = Eα + fit.u[1]';
 
     for j in 1:n
-        fill!(epy_col,0.0);
-        for i in 1:n
-            pyd = calc_pyd(αc[j],u[i]+fit.α*pk[j],K,dim);
-            py = calc_py(pyd,pk[j]);
+        pyd = calc_pyd(αc[j],u[i]+fit.α*pk[j],K,dim);
+        py = calc_py(pyd,pk[j]);
             cH += entropy(py);
             epy_col .+= py;
             epy_row[:,i] .+= py;
@@ -71,7 +66,7 @@ function calc_cond_entropy_2(fit::HYBRIDsample,n::Int)
     epy .*= 1/(n^2);
     H = entropy(epy);
 
-    return H, cH, cH_row, cH_col
+    return H
 end
 
 
@@ -106,7 +101,7 @@ function sample_pk(tlmm,K)
     return softmax(ηk)
 end
 
-function calc_pyd(α,μ,K,dim)
+function calc_pyd(α,μ,K=size(α,2),dim=size(α,1))
     pyd = Array{Float64,3}(K,2,dim);
     for d in 1:dim
         for k in 1:K
@@ -117,4 +112,19 @@ function calc_pyd(α,μ,K,dim)
         end
     end
     return pyd
+end
+
+function calc_py(fit::Vector{HYBRIDsample})
+    n,d = size(fit[1].u[1]);
+    py = Array{Float64}(2^d,n,length(fit));
+    for j in eachindex(fit)
+        s = fit[j];
+        for l in 1:n
+            pi = softmax(s.tlmm.η[:,l]);
+            u = s.u[1][l,:];
+            pyd = calc_pyd(s.α,u);
+            py[:,l,j] = calc_py(pyd,pi);
+        end
+    end
+    return py
 end

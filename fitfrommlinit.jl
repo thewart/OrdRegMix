@@ -1,17 +1,16 @@
 addprocs(3);
-path = "/home/seth/analysis/OrdRegMix/120518fF_rank/";
-include("/home/seth/code/OrdRegMix/readindata.jl")
+include("/home/seth/code/OrdRegMix/initialize.jl")
+path = "/home/seth/analysis/OrdRegMix/022119fF/";
+include("/home/seth/code/OrdRegMix/readindata.jl");
 
 #read in initialization
-Kvec = [1,2,4,6,8];
+Kvec = [1,2,4,6,8,10];
 foof = Vector{Vector{HYBRIDsample}}(length(Kvec));
 lp = Vector{Matrix{Float64}}(length(Kvec));
 foofu = Vector{Vector{HYBRIDsample}}(length(Kvec));
 lpu = Vector{Matrix{Float64}}(length(Kvec));
 foof0 = Vector{Vector{HYBRIDsample}}(length(Kvec));
 lp0 = Vector{Matrix{Float64}}(length(Kvec));
-
-# cv = Matrix{Matrix{Float64}}(nfolds,length(Kvec));
 
 for i in 1:length(Kvec)
     K = Kvec[i];
@@ -61,7 +60,7 @@ for i in 1:length(Kvec)
     hyinvec = [hyin,hyinu,hyin0];
 
     f1 = (hy,hyin) -> lmmtopic(Y,Xf,Xr,Xin,docrng,K,init=init,hy=hy,hyin=hyin,
-        initin=initin,iter=10000,thin=20);
+        initin=initin,iter=40000,thin=40);
     f2 = fit -> lppd(Y,Xf,Xr,docrng,fit);
 
     @time f1out = pmap(f1,hyvec,hyinvec);
@@ -75,20 +74,3 @@ for i in 1:length(Kvec)
 end
 
 @save string(path,"topicfits.jld") foof foofu foof0 lp lpu lp0
-
-@load string(path,"topicfits.jld") foof;
-
-d = size(Y,2);
-n = size(Xr[1],2);
-i = 5;
-fit = foof[i];
-py = Array{Float64}(2^d,n,length(fit)));
-for j in eachindex(fit)
-    s = fit[j];
-    for l in 1:n
-        pi = softmax(s.tlmm.η[:,l]);
-        u = s.u[1][l,:];
-        pyd = calc_pyd(s.α,u);
-        py[:,l,j] = calc_py(pyd,pi);
-    end
-end
