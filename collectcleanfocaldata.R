@@ -18,10 +18,10 @@ foo[PartnerID=="01K;0K1",PartnerID:="01K"]
 
 F_2016 <- read_excel(paste0(behpath,"2016.GrpF_Masterfile.xlsx"), sheet = "2016.GrpF_MASTER")
 F_2016 <- as.data.table(F_2016)
-F_2016[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,`X..20`,`X..21`,`X..22`,sep="; ")]
+F_2016[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,`X...20`,`X...21`,`X...22`,sep="; ")]
 F_2016[,Year:=as.character(Year)]
 F_2016[,Year:="2016"]
-setnames(F_2016,"Behavior..17","Behavior")
+setnames(F_2016,"Behavior...17","Behavior")
 F_2016 <- F_2016[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`,Duration,Behavior,`Behavior Modifier`,PartnerID)]
 F_2016$Group <- "F"
@@ -50,30 +50,30 @@ F_2014[PartnerID %in% c("0A10","0A11","0A12","0A13"),PartnerID:="0A9"]
 
 V_2015 <- read_excel(paste0(behpath,"2015_GroupV_FOCALdata.xlsx"), sheet = "groupV 2015")
 V_2015 <- as.data.table(V_2015)
-V_2015[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,`X..19`,`X..20`,`X..21`,sep="; ")]
+V_2015[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,`X...19`,`X...20`,`X...21`,sep="; ")]
 V_2015[,Year:=as.character(Year)]
 V_2015[,Year:="2015"]
-setnames(V_2015,"Behavior..16","Behavior")
+setnames(V_2015,"Behavior...16","Behavior")
 V_2015 <- V_2015[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`,Duration,Behavior,`Behavior Modifier`,PartnerID)]
 V_2015$Group <- "V"
 
 V_2016 <- read_excel(paste0(behpath,"2016_GroupV_MASTERFILE.xlsx"), sheet = "Sheet1")
 V_2016 <- as.data.table(V_2016)
-V_2016[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,`X..21`,`X..22`,`X..23`,sep="; ")]
+V_2016[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,`X...21`,`X...22`,`X...23`,sep="; ")]
 V_2016[,Year:=as.character(Year)]
 V_2016[,Year:="2016"]
-setnames(V_2016,"Behavior..18","Behavior")
+setnames(V_2016,"Behavior...18","Behavior")
 V_2016 <- V_2016[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`,Duration,Behavior,`Behavior Modifier`,PartnerID)]
 V_2016$Group <- "V"
 
 KK_2015 <- read_excel(paste0(behpath,"2015_groupKK_FOCALdata.xlsx"), sheet = "grpKK_2015")
 KK_2015 <- as.data.table(KK_2015)
-KK_2015[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,`X..19`,`X..20`,`X..21`,sep="; ")]
+KK_2015[,`Behavior Modifier`:= paste(`Behavior Modifier`,`Behavior Modifier 1`,`X...19`,`X...20`,`X...21`,sep="; ")]
 KK_2015[,Year:=as.character(Year)]
 KK_2015[,Year:="2015"]
-setnames(KK_2015,"Behavior..16","Behavior")
+setnames(KK_2015,"Behavior...16","Behavior")
 KK_2015 <- KK_2015[,.(`Event Name`,`Observation Name`,`Focal ID`,Observer,Year,
                     `Start Time`,`Stop Time`,Duration,Behavior,`Behavior Modifier`,PartnerID)]
 KK_2015$Group <- "KK"
