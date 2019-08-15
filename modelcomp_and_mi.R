@@ -44,6 +44,6 @@ for (i in 1:l) {
   Ks[i] <- julia_eval(paste0("size(getfield(foof[",is,"][1],fieldname(HYBRIDsample,1)),2);"))
 }
 
-midat_bsr <- data.table(mi=mi_rs,sdev=sdev_rs,model=paste0("K=",Ks))
+midat_bsr <- data.table(mi=mi_rs,sdev=sdev_rs,model=paste0("BS",Ks))
 
 

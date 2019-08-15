@@ -48,7 +48,7 @@ for i in 1:length(Kvec)
     hy = hyu = hyperparameter(ν0_τ=1.0,τ0_τ=1.0,τ_β=5.0);
     hy[:a] = 1.0;
     hy[:ν0] = 2.0;
-    hyin = hyperparameter(σ0_σ2η=0.1,ν0_σ2η=1.0);
+    hyin = hyperparameter(σ0_σ2η=0.1,ν0_σ2η=1.0,τ_μ=5.0);
 
     hyinu = hyin0 = hyperparameter(σ0_σ2η=1e-12,ν0_σ2η=1e12);
 
